@@ -1,0 +1,8 @@
+{
+  "name": "Copy of FireSafe Pro - Maintenance System",
+  "description": "A comprehensive fire alarm and safety equipment maintenance application featuring real-time inspection checklists, offline-ready sync, and AI-powered defect analysis.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
