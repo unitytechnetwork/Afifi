@@ -1,14 +1,18 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import BottomNav from '../components/BottomNav';
 import { MOCK_USER, RECENT_INSPECTIONS } from '../constants';
-import { InspectionStatus } from '../types';
+import { InspectionStatus, User } from '../types';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [isSyncing, setIsSyncing] = useState(false);
+  const [currentUser, setCurrentUser] = useState<User>(() => {
+    const saved = localStorage.getItem('current_user');
+    return saved ? JSON.parse(saved) : MOCK_USER;
+  });
 
   // Dynamic counts based on mock data
   const pendingSyncCount = useMemo(() => 
@@ -46,13 +50,13 @@ const Dashboard: React.FC = () => {
       <div className="p-4 flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <div className="animate-in fade-in slide-in-from-left duration-500">
-            <h1 className="text-2xl font-bold italic tracking-tight">HELLO,</h1>
-            <p className="text-text-muted font-black text-xs uppercase tracking-[0.2em] -mt-1">{MOCK_USER.name} • {MOCK_USER.role}</p>
+            <h1 className="text-2xl font-bold italic tracking-tight uppercase">HELLO,</h1>
+            <p className="text-text-muted font-black text-xs uppercase tracking-[0.2em] -mt-1">{currentUser.name} • {currentUser.role}</p>
           </div>
           <div 
             onClick={() => navigate('/settings')}
             className="w-12 h-12 rounded-full border-2 border-primary bg-cover bg-center shadow-lg cursor-pointer active:scale-95 transition-transform"
-            style={{ backgroundImage: `url(${MOCK_USER.avatar})` }}
+            style={{ backgroundImage: `url(${currentUser.avatar})` }}
           />
         </div>
 

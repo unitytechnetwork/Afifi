@@ -17,10 +17,11 @@ interface EquipmentItem {
   landingValveStatus: 'Normal' | 'Fault';
   oringStatus: 'Normal' | 'Fault';
   capChainStatus: 'Normal' | 'Fault';
-  // Wet Riser Specifics
+  // Wet Riser & Dry Riser Specifics
   breechingInletStatus: 'Normal' | 'Fault';
   drainValveStatus: 'Normal' | 'Fault';
   cabinetStatus: 'Normal' | 'Fault';
+  airReleaseValveStatus: 'Normal' | 'Fault'; // Specifically for Dry Riser
   // Shared
   pressureStatus: 'Normal' | 'Low';
   // General fallback
@@ -43,6 +44,7 @@ const EquipmentSystem: React.FC = () => {
   const isHoseReel = equipType.toLowerCase().includes('hosereel');
   const isHydrant = equipType.toLowerCase().includes('hydrant');
   const isWetRiser = equipType.toLowerCase().includes('wetriser');
+  const isDryRiser = equipType.toLowerCase().includes('dryriser');
 
   const [log, setLog] = useState<EquipmentLog>(() => {
     const saved = localStorage.getItem(`equip_${equipType}_${auditId}`);
@@ -90,6 +92,7 @@ const EquipmentSystem: React.FC = () => {
     breechingInletStatus: 'Normal',
     drainValveStatus: 'Normal',
     cabinetStatus: 'Normal',
+    airReleaseValveStatus: 'Normal',
     pressureStatus: 'Normal',
     condition: 'Good',
     remarks: ''
@@ -139,6 +142,7 @@ const EquipmentSystem: React.FC = () => {
                 isHoseReel={isHoseReel}
                 isHydrant={isHydrant}
                 isWetRiser={isWetRiser}
+                isDryRiser={isDryRiser}
                 onUpdate={(upd) => updateItem(item.id, upd)}
                 onDelete={() => deleteItem(item.id)}
             />
@@ -195,11 +199,12 @@ interface AssetCardProps {
   isHoseReel: boolean;
   isHydrant: boolean;
   isWetRiser: boolean;
+  isDryRiser: boolean;
   onUpdate: (upd: Partial<EquipmentItem>) => void;
   onDelete: () => void;
 }
 
-const AssetUnitCard: React.FC<AssetCardProps> = ({ index, item, isHoseReel, isHydrant, isWetRiser, onUpdate, onDelete }) => {
+const AssetUnitCard: React.FC<AssetCardProps> = ({ index, item, isHoseReel, isHydrant, isWetRiser, isDryRiser, onUpdate, onDelete }) => {
   const fileRef = useRef<HTMLInputElement>(null);
   
   let hasFault = false;
@@ -209,6 +214,8 @@ const AssetUnitCard: React.FC<AssetCardProps> = ({ index, item, isHoseReel, isHy
     hasFault = (item.pillarStatus === 'Fault' || item.canvasStatus === 'Fault' || item.nozzleStatus === 'Fault' || item.landingValveStatus === 'Fault' || item.oringStatus === 'Fault' || item.capChainStatus === 'Fault' || item.pressureStatus === 'Low' || item.cabinetStatus === 'Fault');
   } else if (isWetRiser) {
     hasFault = (item.landingValveStatus === 'Fault' || item.breechingInletStatus === 'Fault' || item.drainValveStatus === 'Fault' || item.cabinetStatus === 'Fault' || item.pressureStatus === 'Low' || item.nozzleStatus === 'Fault' || item.hoseStatus === 'Fault' || item.capChainStatus === 'Fault' || item.oringStatus === 'Fault');
+  } else if (isDryRiser) {
+    hasFault = (item.breechingInletStatus === 'Fault' || item.landingValveStatus === 'Fault' || item.drainValveStatus === 'Fault' || item.airReleaseValveStatus === 'Fault' || item.cabinetStatus === 'Fault' || item.capChainStatus === 'Fault' || item.oringStatus === 'Fault' || item.nozzleStatus === 'Fault');
   } else {
     hasFault = (item.condition === 'Damaged');
   }
@@ -293,6 +300,25 @@ const AssetUnitCard: React.FC<AssetCardProps> = ({ index, item, isHoseReel, isHy
                   <ConditionToggle label="O-Ring / Gasket" value={item.oringStatus} onToggle={(v) => onUpdate({ oringStatus: v as any })} />
                </div>
                <PressureToggle value={item.pressureStatus} onToggle={(v) => onUpdate({ pressureStatus: v as any })} />
+            </div>
+          ) : isDryRiser ? (
+            <div className="grid grid-cols-1 gap-3">
+               <div className="grid grid-cols-2 gap-2">
+                  <ConditionToggle label="Breeching Inlet" value={item.breechingInletStatus} onToggle={(v) => onUpdate({ breechingInletStatus: v as any })} />
+                  <ConditionToggle label="Landing Valve" value={item.landingValveStatus} onToggle={(v) => onUpdate({ landingValveStatus: v as any })} />
+               </div>
+               <div className="grid grid-cols-2 gap-2">
+                  <ConditionToggle label="Drain Valve" value={item.drainValveStatus} onToggle={(v) => onUpdate({ drainValveStatus: v as any })} />
+                  <ConditionToggle label="Air Release Valve" value={item.airReleaseValveStatus} onToggle={(v) => onUpdate({ airReleaseValveStatus: v as any })} />
+               </div>
+               <div className="grid grid-cols-2 gap-2">
+                  <ConditionToggle label="Cabinet / Box" value={item.cabinetStatus} onToggle={(v) => onUpdate({ cabinetStatus: v as any })} />
+                  <ConditionToggle label="Cap & Chain" value={item.capChainStatus} onToggle={(v) => onUpdate({ capChainStatus: v as any })} />
+               </div>
+               <div className="grid grid-cols-2 gap-2">
+                  <ConditionToggle label="O-Ring / Gasket" value={item.oringStatus} onToggle={(v) => onUpdate({ oringStatus: v as any })} />
+                  <ConditionToggle label="Nozzle Condition" value={item.nozzleStatus} onToggle={(v) => onUpdate({ nozzleStatus: v as any })} />
+               </div>
             </div>
           ) : (
              <div className="flex items-center justify-between bg-background-dark/30 p-3 rounded-2xl border border-white/5">
