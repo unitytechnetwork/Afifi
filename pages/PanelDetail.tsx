@@ -54,36 +54,66 @@ const PanelDetail: React.FC = () => {
   
   const batteryCameraRef = useRef<HTMLInputElement>(null);
 
+  // Default values for robustness
+  const DEFAULT_PANEL_SPECS: PanelSpecs = {
+    model: 'Morley DXc4',
+    location: 'Main Lobby G-Floor',
+    batteryVolt: '26.4',
+    chargerVolt: '27.2',
+    batteryStatus: 'Normal',
+    testLampStatus: 'Normal',
+    testBatteryStatus: 'Normal',
+    panelRemarks: ''
+  };
+
+  const DEFAULT_CARDS: CardCondition[] = [
+    { id: 'c1', label: 'Charger Card', status: 'Normal' },
+    { id: 'c2', label: 'Zone Card', status: 'Normal' },
+    { id: 'c3', label: 'Fault Card', status: 'Normal' },
+    { id: 'c4', label: 'Power Card', status: 'Normal' },
+  ];
+
+  const DEFAULT_INDICATORS: PanelIndicator[] = [
+    { id: 'ind1', label: 'Hose Reel Pump Signal', category: 'Pump', status: 'Normal' },
+    { id: 'ind2', label: 'Sprinkler Pump Signal', category: 'Pump', status: 'Normal' },
+    { id: 'ind3', label: 'Hydrant Pump Signal', category: 'Pump', status: 'Normal' },
+    { id: 'ind4', label: 'Gas Discharge Signal', category: 'Gas', status: 'Normal' },
+    { id: 'ind5', label: 'Gas System Fault Signal', category: 'Gas', status: 'Normal' },
+    { id: 'sig1', label: 'Output Bell Link', category: 'Integration', status: 'Normal' },
+    { id: 'sig2', label: 'Lift Homol / Trip Link', category: 'Integration', status: 'Normal' },
+    { id: 'sig3', label: 'CMS to Bomba (SPP)', category: 'Integration', status: 'Normal' },
+  ];
+
+  // Safe State Initialization
   const [panelSpecs, setPanelSpecs] = useState<PanelSpecs>(() => {
     const saved = localStorage.getItem(`checklist_${auditId}`);
-    if (saved) return JSON.parse(saved).panelSpecs;
-    return {
-      model: 'Morley DXc4',
-      location: 'Main Lobby G-Floor',
-      batteryVolt: '26.4',
-      chargerVolt: '27.2',
-      batteryStatus: 'Normal',
-      testLampStatus: 'Normal',
-      testBatteryStatus: 'Normal',
-      panelRemarks: ''
-    };
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed.panelSpecs || DEFAULT_PANEL_SPECS;
+      } catch (e) {
+        return DEFAULT_PANEL_SPECS;
+      }
+    }
+    return DEFAULT_PANEL_SPECS;
   });
 
   const [cardConditions, setCardConditions] = useState<CardCondition[]>(() => {
     const saved = localStorage.getItem(`checklist_${auditId}`);
-    if (saved) return JSON.parse(saved).cardConditions;
-    return [
-      { id: 'c1', label: 'Charger Card', status: 'Normal' },
-      { id: 'c2', label: 'Zone Card', status: 'Normal' },
-      { id: 'c3', label: 'Fault Card', status: 'Normal' },
-      { id: 'c4', label: 'Power Card', status: 'Normal' },
-    ];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed.cardConditions || DEFAULT_CARDS;
+      } catch (e) {
+        return DEFAULT_CARDS;
+      }
+    }
+    return DEFAULT_CARDS;
   });
 
   const [zones, setZones] = useState<ZoneDetail[]>(() => {
     const saved = localStorage.getItem(`checklist_${auditId}`);
-    if (saved && JSON.parse(saved).zones) return JSON.parse(saved).zones;
-    return [{ 
+    const defaultZone = [{ 
       id: 'z1', 
       zoneNo: '1', 
       name: 'Main Lobby', 
@@ -93,30 +123,42 @@ const PanelDetail: React.FC = () => {
       bellQty: '0',
       status: 'Normal' 
     }];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed.zones || defaultZone;
+      } catch (e) {
+        return defaultZone;
+      }
+    }
+    return defaultZone;
   });
 
   const [indicators, setIndicators] = useState<PanelIndicator[]>(() => {
     const saved = localStorage.getItem(`checklist_${auditId}`);
-    if (saved && JSON.parse(saved).indicators) return JSON.parse(saved).indicators;
-    return [
-      { id: 'ind1', label: 'Hose Reel Pump Signal', category: 'Pump', status: 'Normal' },
-      { id: 'ind2', label: 'Sprinkler Pump Signal', category: 'Pump', status: 'Normal' },
-      { id: 'ind3', label: 'Hydrant Pump Signal', category: 'Pump', status: 'Normal' },
-      { id: 'ind4', label: 'Gas Discharge Signal', category: 'Gas', status: 'Normal' },
-      { id: 'ind5', label: 'Gas System Fault Signal', category: 'Gas', status: 'Normal' },
-      { id: 'sig1', label: 'Output Bell Link', category: 'Integration', status: 'Normal' },
-      { id: 'sig2', label: 'Lift Homol / Trip Link', category: 'Integration', status: 'Normal' },
-      { id: 'sig3', label: 'CMS to Bomba (SPP)', category: 'Integration', status: 'Normal' },
-    ];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed.indicators || DEFAULT_INDICATORS;
+      } catch (e) {
+        return DEFAULT_INDICATORS;
+      }
+    }
+    return DEFAULT_INDICATORS;
   });
 
   const [photos, setPhotos] = useState<string[]>(() => {
     const saved = localStorage.getItem(`checklist_${auditId}`);
+    const defaultPhotos = ['', '', '', ''];
     if (saved) {
-      const data = JSON.parse(saved);
-      return data.photos || ['', '', '', ''];
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed.photos || defaultPhotos;
+      } catch (e) {
+        return defaultPhotos;
+      }
     }
-    return ['', '', '', ''];
+    return defaultPhotos;
   });
 
   const deviceTotals = useMemo(() => {
@@ -130,7 +172,7 @@ const PanelDetail: React.FC = () => {
 
   const handleSave = () => {
     const existing = JSON.parse(localStorage.getItem(`checklist_${auditId}`) || '{}');
-    const updated = { ...existing, panelSpecs, cardConditions, zones, indicators, photos };
+    const updated = { ...existing, panelSpecs, cardConditions, zones, indicators, photos, isNA: false };
     localStorage.setItem(`checklist_${auditId}`, JSON.stringify(updated));
     navigate(`/checklist/${auditId}`);
   };

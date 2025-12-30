@@ -61,44 +61,60 @@ const GasSuppression: React.FC = () => {
     { id: 'manual_release', label: 'Manual Release Health', status: 'Functional' },
   ];
 
+  const getDefaultSystem = (): GasSystemEntry => ({
+    id: Date.now().toString(),
+    panelModel: '',
+    zoneName: 'Server Room A',
+    cylinderSerial: '',
+    cylinderQty: '1',
+    dischargeTimer: '30 seconds',
+    batteryVolt: '27.2',
+    chargerVolt: '27.4',
+    ampMeter: '0.5',
+    acDcStatus: 'Normal',
+    fuseStatus: 'Normal',
+    testBatteryStatus: 'Functional',
+    smokeQty: '0',
+    heatQty: '0',
+    flashingLightQty: '0',
+    bellQty: '0',
+    blanketQty: '0',
+    agentType: 'FM-200 (HFC-227ea)',
+    pipingStatus: 'Normal',
+    nozzleStatus: 'Clean',
+    roomSealing: 'Intact',
+    integrationItems: [...defaultIntegrationItems],
+    photos: [],
+    remarks: ''
+  });
+
   const [systems, setSystems] = useState<GasSystemEntry[]>(() => {
     const saved = localStorage.getItem(`gas_suppression_${auditId}`);
     if (saved) {
-      const parsed = JSON.parse(saved);
-      // Migration logic to add new fields to existing data
-      return parsed.map((s: any) => ({
-        ...s,
-        photos: s.photos || (s.photo ? [s.photo] : []),
-        chargerVolt: s.chargerVolt || '27.4',
-        blanketQty: s.blanketQty || '0'
-      }));
+      try {
+        const parsed = JSON.parse(saved);
+        // FIX: Ensure parsed is actually an array before calling .map()
+        if (Array.isArray(parsed)) {
+          return parsed.map((s: any) => ({
+            ...s,
+            photos: s.photos || (s.photo ? [s.photo] : []),
+            chargerVolt: s.chargerVolt || '27.4',
+            blanketQty: s.blanketQty || '0'
+          }));
+        } else {
+          // If it's a single object, wrap it in an array
+          return [{
+            ...parsed,
+            photos: parsed.photos || (parsed.photo ? [parsed.photo] : []),
+            chargerVolt: parsed.chargerVolt || '27.4',
+            blanketQty: parsed.blanketQty || '0'
+          }];
+        }
+      } catch (e) {
+        console.error("Error loading gas suppression data:", e);
+      }
     }
-    return [{
-      id: Date.now().toString(),
-      panelModel: '',
-      zoneName: 'Server Room A',
-      cylinderSerial: '',
-      cylinderQty: '1',
-      dischargeTimer: '30 seconds',
-      batteryVolt: '27.2',
-      chargerVolt: '27.4',
-      ampMeter: '0.5',
-      acDcStatus: 'Normal',
-      fuseStatus: 'Normal',
-      testBatteryStatus: 'Functional',
-      smokeQty: '0',
-      heatQty: '0',
-      flashingLightQty: '0',
-      bellQty: '0',
-      blanketQty: '0',
-      agentType: 'FM-200 (HFC-227ea)',
-      pipingStatus: 'Normal',
-      nozzleStatus: 'Clean',
-      roomSealing: 'Intact',
-      integrationItems: [...defaultIntegrationItems],
-      photos: [],
-      remarks: ''
-    }];
+    return [getDefaultSystem()];
   });
 
   const [activeSystemId, setActiveSystemId] = useState<string>(systems[0]?.id || '');
@@ -108,32 +124,7 @@ const GasSuppression: React.FC = () => {
   }, [systems, auditId]);
 
   const addSystem = () => {
-    const newSys: GasSystemEntry = {
-      id: Date.now().toString(),
-      panelModel: '',
-      zoneName: `Zone ${systems.length + 1}`,
-      cylinderSerial: '',
-      cylinderQty: '1',
-      dischargeTimer: '30 seconds',
-      batteryVolt: '27.2',
-      chargerVolt: '27.4',
-      ampMeter: '0.5',
-      acDcStatus: 'Normal',
-      fuseStatus: 'Normal',
-      testBatteryStatus: 'Functional',
-      smokeQty: '0',
-      heatQty: '0',
-      flashingLightQty: '0',
-      bellQty: '0',
-      blanketQty: '0',
-      agentType: 'FM-200 (HFC-227ea)',
-      pipingStatus: 'Normal',
-      nozzleStatus: 'Clean',
-      roomSealing: 'Intact',
-      integrationItems: [...defaultIntegrationItems],
-      photos: [],
-      remarks: ''
-    };
+    const newSys = getDefaultSystem();
     setSystems([...systems, newSys]);
     setActiveSystemId(newSys.id);
   };

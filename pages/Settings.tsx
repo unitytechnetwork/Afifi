@@ -19,7 +19,7 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
   const [securityPrefs, setSecurityPrefs] = useState(() => {
     const saved = localStorage.getItem('security_prefs');
     return saved ? JSON.parse(saved) : {
-      biometrics: true,
+      biometrics: user.hasBiometric || false,
       clearOnLogout: false,
       securityPin: user.pin || '1234'
     };
@@ -34,7 +34,8 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
   
   const [editName, setEditName] = useState(user.name);
   const [editId, setEditId] = useState(user.id);
-  const [editPin, setEditPin] = useState(securityPrefs.securityPin);
+  const [editPin, setEditPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
   
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
@@ -57,44 +58,69 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
 
   const handleSaveSecurity = () => {
     if (editPin.length !== 4) {
-      alert("Security PIN must be exactly 4 digits.");
+      alert("Security Error: New PIN must be exactly 4 digits.");
       return;
     }
 
-    // 1. Update Security Prefs (Global Device Level)
+    if (editPin !== confirmPin) {
+      alert("Validation Error: PIN confirmation does not match.");
+      return;
+    }
+
+    // 1. Create the updated user object
+    const updatedUser = { ...user, pin: editPin };
+    
+    // 2. Update all storage layers
+    setUser(updatedUser);
+    localStorage.setItem('current_user', JSON.stringify(updatedUser));
+    localStorage.setItem('last_user', JSON.stringify(updatedUser));
+
+    // 3. Update Security Preferences
     const newPrefs = { ...securityPrefs, securityPin: editPin };
     setSecurityPrefs(newPrefs);
     localStorage.setItem('security_prefs', JSON.stringify(newPrefs));
     
-    // 2. Update Current Active User State & Storage
-    const updatedUser = { ...user, pin: editPin };
-    setUser(updatedUser);
-    localStorage.setItem('current_user', JSON.stringify(updatedUser));
-    
-    // 3. Update Last User Cache (Crucial for Biometric/Quick Login)
-    localStorage.setItem('last_user', JSON.stringify(updatedUser));
-
-    // 4. Update the Master Registry (For manual Login lookup)
+    // 4. Update the Master Registry (Ensures login works with new PIN)
     const registry = JSON.parse(localStorage.getItem('users_registry') || '[]');
-    const userIndex = registry.findIndex((u: any) => String(u.id) === String(updatedUser.id));
+    const userIndex = registry.findIndex((u: any) => 
+      String(u.id) === String(updatedUser.id) || 
+      u.email === updatedUser.email
+    );
     
     if (userIndex > -1) {
       registry[userIndex].pin = editPin;
       localStorage.setItem('users_registry', JSON.stringify(registry));
     } else {
-      // If user isn't in registry yet (e.g. first login), add them now
+      // If user wasn't in registry (like default mock), add them now
       registry.push(updatedUser);
       localStorage.setItem('users_registry', JSON.stringify(registry));
     }
 
     setShowSecurity(false);
-    alert("SYSTEM: Security PIN has been successfully replaced.");
+    setEditPin('');
+    setConfirmPin('');
+    alert("SYSTEM: Security credentials updated and synchronized.");
   };
 
   const updateSecurityToggle = (key: keyof typeof securityPrefs) => {
-    const newPrefs = { ...securityPrefs, [key]: !securityPrefs[key] };
+    const newValue = !securityPrefs[key];
+    const newPrefs = { ...securityPrefs, [key]: newValue };
     setSecurityPrefs(newPrefs);
     localStorage.setItem('security_prefs', JSON.stringify(newPrefs));
+
+    if (key === 'biometrics') {
+      const updatedUser = { ...user, hasBiometric: newValue };
+      setUser(updatedUser);
+      localStorage.setItem('current_user', JSON.stringify(updatedUser));
+      localStorage.setItem('last_user', JSON.stringify(updatedUser));
+
+      const registry = JSON.parse(localStorage.getItem('users_registry') || '[]');
+      const userIndex = registry.findIndex((u: any) => String(u.id) === String(updatedUser.id) || u.email === updatedUser.email);
+      if (userIndex > -1) {
+        registry[userIndex].hasBiometric = newValue;
+        localStorage.setItem('users_registry', JSON.stringify(registry));
+      }
+    }
   };
 
   const handleAvatarClick = () => {
@@ -129,14 +155,10 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
   };
 
   const handleSystemReset = () => {
-    const confirm = window.confirm("SYSTEM RESET: This will delete ALL stored data, including user accounts and saved reports. This action cannot be undone. Proceed?");
+    const confirm = window.confirm("SYSTEM RESET: This will delete ALL stored data. Proceed?");
     if (confirm) {
-      const doubleCheck = window.confirm("Final Warning: Are you absolutely sure you want to factory reset the application?");
-      if (doubleCheck) {
-        localStorage.clear();
-        alert("System storage cleared. The app will now return to the login screen.");
-        window.location.href = '/';
-      }
+      localStorage.clear();
+      window.location.href = '/';
     }
   };
 
@@ -171,9 +193,9 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
               <h2 className="font-bold text-lg truncate uppercase tracking-tight">{user.name}</h2>
               <p className="text-text-muted text-[10px] font-black uppercase tracking-widest">{user.role} • ID: {user.id}</p>
               <div className="flex items-center gap-1.5 mt-1.5">
-                <div className={`w-1.5 h-1.5 rounded-full bg-emerald-500`} />
+                <div className={`w-1.5 h-1.5 rounded-full ${securityPrefs.biometrics ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500'}`} />
                 <span className="text-[8px] font-black text-text-muted uppercase tracking-widest">
-                  Secure Access Active
+                  {securityPrefs.biometrics ? 'Biometric Active' : 'PIN Access Only'}
                 </span>
               </div>
             </div>
@@ -187,7 +209,7 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
 
           {/* Account Section */}
           <section>
-            <h3 className="px-4 text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-2 italic">Maintenance Account</h3>
+            <h3 className="px-4 text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-2 italic">Security Hub</h3>
             <div className="bg-surface-dark rounded-3xl border border-white/5 divide-y divide-white/5 overflow-hidden shadow-xl">
               <button 
                 onClick={() => {
@@ -201,25 +223,26 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
                   <div className="w-9 h-9 rounded-xl bg-background-dark flex items-center justify-center text-primary group-hover:bg-primary/10 transition-colors">
                     <span className="material-symbols-outlined text-[20px]">person</span>
                   </div>
-                  <span className="text-xs font-bold uppercase tracking-tight">Profile Identity</span>
+                  <span className="text-xs font-bold uppercase tracking-tight">Identity Details</span>
                 </div>
                 <span className="material-symbols-outlined text-text-muted group-hover:translate-x-1 transition-transform">chevron_right</span>
               </button>
               
               <button 
                 onClick={() => {
-                  setEditPin(securityPrefs.securityPin);
+                  setEditPin('');
+                  setConfirmPin('');
                   setShowSecurity(true);
                 }}
                 className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors group"
               >
                 <div className="flex items-center gap-4">
                   <div className="w-9 h-9 rounded-xl bg-background-dark flex items-center justify-center text-primary group-hover:bg-primary/10 transition-colors">
-                    <span className="material-symbols-outlined text-[20px]">security</span>
+                    <span className="material-symbols-outlined text-[20px]">fingerprint</span>
                   </div>
-                  <div className="flex flex-col items-start">
+                  <div className="flex flex-col items-start text-left">
                     <span className="text-xs font-bold uppercase tracking-tight">PIN & Biometrics</span>
-                    <span className="text-[7px] font-black text-primary uppercase tracking-widest">Update Security Code</span>
+                    <span className="text-[7px] font-black text-primary uppercase tracking-widest">Manage Authorization</span>
                   </div>
                 </div>
                 <span className="material-symbols-outlined text-text-muted group-hover:translate-x-1 transition-transform">chevron_right</span>
@@ -227,16 +250,16 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
             </div>
           </section>
 
-          {/* App Settings Section */}
+          {/* App Preferences */}
           <section>
-            <h3 className="px-4 text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-2 italic">App Preferences</h3>
+            <h3 className="px-4 text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-2 italic">App Configuration</h3>
             <div className="bg-surface-dark rounded-3xl border border-white/5 divide-y divide-white/5 overflow-hidden shadow-xl">
               <div className="w-full flex items-center justify-between p-4">
                 <div className="flex items-center gap-4">
                   <div className="w-9 h-9 rounded-xl bg-background-dark flex items-center justify-center text-amber-500">
                     <span className="material-symbols-outlined text-[20px]">notifications</span>
                   </div>
-                  <span className="text-xs font-bold uppercase tracking-tight">Push Notifications</span>
+                  <span className="text-xs font-bold uppercase tracking-tight">Notifications</span>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input 
@@ -256,19 +279,19 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
               >
                 <div className="flex items-center gap-4">
                   <div className={`w-9 h-9 rounded-xl bg-background-dark flex items-center justify-center text-emerald-500 group-hover:bg-emerald-500/10 ${isSyncing ? 'animate-spin' : ''}`}>
-                    <span className="material-symbols-outlined text-[20px]">cloud_sync</span>
+                    <span className="material-symbols-outlined text-[20px]">sync</span>
                   </div>
                   <div className="flex flex-col items-start text-left">
-                    <span className="text-xs font-bold uppercase tracking-tight">Manual Data Sync</span>
-                    <span className="text-[7px] font-black text-text-muted uppercase tracking-widest italic">Last: {lastSync}</span>
+                    <span className="text-xs font-bold uppercase tracking-tight">Sync Cloud Data</span>
+                    <span className="text-[7px] font-black text-text-muted uppercase tracking-widest italic">Status: {lastSync}</span>
                   </div>
                 </div>
-                <span className="material-symbols-outlined text-text-muted group-hover:translate-x-1 transition-transform">chevron_right</span>
+                <span className="material-symbols-outlined text-text-muted">chevron_right</span>
               </button>
             </div>
           </section>
 
-          {/* SYSTEM CONTROL SECTION */}
+          {/* System Control */}
           <section>
             <h3 className="px-4 text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2 italic">System Control</h3>
             <div className="bg-surface-dark rounded-3xl border border-white/5 divide-y divide-white/5 overflow-hidden shadow-xl">
@@ -280,12 +303,9 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
                   <div className="w-9 h-9 rounded-xl bg-background-dark flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors">
                     <span className="material-symbols-outlined text-[20px]">logout</span>
                   </div>
-                  <div className="flex flex-col items-start">
-                    <span className="text-xs font-bold uppercase tracking-tight text-white">System Logout</span>
-                    <span className="text-[7px] font-black text-text-muted uppercase tracking-widest">Terminate Current Session</span>
-                  </div>
+                  <span className="text-xs font-bold uppercase tracking-tight text-white">Log Out</span>
                 </div>
-                <span className="material-symbols-outlined text-text-muted group-hover:translate-x-1 transition-transform">chevron_right</span>
+                <span className="material-symbols-outlined text-text-muted">chevron_right</span>
               </button>
 
               <button 
@@ -296,53 +316,152 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
                   <div className="w-9 h-9 rounded-xl bg-background-dark flex items-center justify-center text-red-800">
                     <span className="material-symbols-outlined text-[20px]">delete_forever</span>
                   </div>
-                  <div className="flex flex-col items-start">
-                    <span className="text-xs font-bold uppercase tracking-tight text-red-600">System Wipe / Reset</span>
-                    <span className="text-[7px] font-black text-text-muted uppercase tracking-widest">Clear All App Data & Cache</span>
-                  </div>
+                  <span className="text-xs font-bold uppercase tracking-tight text-red-600">Factory Reset</span>
                 </div>
-                <span className="material-symbols-outlined text-red-900/50 group-hover:translate-x-1 transition-transform">chevron_right</span>
+                <span className="material-symbols-outlined text-red-900/50">chevron_right</span>
               </button>
             </div>
           </section>
 
           <div className="flex flex-col items-center gap-2 opacity-30 mt-6 pb-12">
-            <div className="w-10 h-10 bg-white/5 rounded-xl flex items-center justify-center border border-white/10">
-              <span className="material-symbols-outlined text-xl text-primary">terminal</span>
-            </div>
             <p className="text-[9px] font-black uppercase tracking-[0.3em]">Bestro Maintenance OS v2.4</p>
-            <p className="text-[7px] font-bold">Secure Local Environment • Build 2405</p>
           </div>
         </div>
       </div>
 
-      {/* QR Modal */}
+      {/* Security Hub Modal */}
+      {showSecurity && (
+        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-end justify-center animate-in slide-in-from-bottom duration-300">
+           <div className="bg-surface-dark w-full max-w-md rounded-t-[40px] border-t border-white/10 p-8 flex flex-col gap-6 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar">
+              <div className="flex justify-between items-center">
+                 <div>
+                    <h3 className="text-sm font-black uppercase tracking-widest italic text-primary">Security Replacement</h3>
+                    <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mt-1">Ganti PIN & Tetapan Biometrik</p>
+                 </div>
+                 <button onClick={() => setShowSecurity(false)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5">
+                    <span className="material-symbols-outlined">close</span>
+                 </button>
+              </div>
+              
+              <div className="flex flex-col gap-6">
+                 {/* Biometric Toggle */}
+                 <div className="bg-background-dark/30 p-5 rounded-3xl border border-white/5 flex items-center justify-between transition-all active:scale-[0.98]">
+                    <div className="flex items-center gap-4">
+                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${securityPrefs.biometrics ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white/5 text-text-muted'}`}>
+                          <span className="material-symbols-outlined text-2xl">fingerprint</span>
+                       </div>
+                       <div className="flex flex-col">
+                          <span className="text-xs font-bold uppercase tracking-tight text-white">Biometric Auth</span>
+                          <span className="text-[8px] font-black text-text-muted uppercase tracking-widest">{securityPrefs.biometrics ? 'Biometrics Enabled' : 'PIN Required Only'}</span>
+                       </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        className="sr-only peer" 
+                        checked={securityPrefs.biometrics} 
+                        onChange={() => updateSecurityToggle('biometrics')}
+                      />
+                      <div className="w-12 h-6 bg-background-dark peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary shadow-inner"></div>
+                    </label>
+                 </div>
+
+                 {/* PIN Replacement Section */}
+                 <div className="flex flex-col gap-4">
+                    {/* New PIN Input */}
+                    <div className="bg-background-dark/30 p-5 rounded-3xl border border-white/5 flex flex-col gap-3">
+                       <div className="flex items-center gap-3">
+                          <span className="material-symbols-outlined text-primary text-lg">lock</span>
+                          <label className="text-[9px] font-black text-text-muted uppercase tracking-widest">New 4-Digit PIN</label>
+                       </div>
+                       
+                       <div className="relative flex justify-center gap-3 py-1">
+                          {[0, 1, 2, 3].map((i) => (
+                            <div 
+                              key={i} 
+                              className={`w-12 h-14 rounded-xl border-2 flex items-center justify-center text-2xl font-black transition-all ${
+                                editPin.length > i ? 'border-primary text-white bg-primary/10' : 'border-white/10 text-white/5'
+                              }`}
+                            >
+                               {editPin[i] ? '•' : ''}
+                            </div>
+                          ))}
+                          <input 
+                            type="tel"
+                            maxLength={4}
+                            value={editPin}
+                            onChange={(e) => setEditPin(e.target.value.replace(/\D/g, ''))}
+                            className="absolute inset-0 opacity-0 w-full cursor-pointer h-full"
+                          />
+                       </div>
+                    </div>
+
+                    {/* Confirm PIN Input */}
+                    <div className={`bg-background-dark/30 p-5 rounded-3xl border transition-all ${editPin.length === 4 ? 'opacity-100' : 'opacity-40 grayscale'}`}>
+                       <div className="flex items-center gap-3 mb-3">
+                          <span className="material-symbols-outlined text-primary text-lg">verified_user</span>
+                          <label className="text-[9px] font-black text-text-muted uppercase tracking-widest">Confirm New PIN</label>
+                       </div>
+                       
+                       <div className="relative flex justify-center gap-3 py-1">
+                          {[0, 1, 2, 3].map((i) => (
+                            <div 
+                              key={i} 
+                              className={`w-12 h-14 rounded-xl border-2 flex items-center justify-center text-2xl font-black transition-all ${
+                                confirmPin.length > i 
+                                  ? (confirmPin === editPin ? 'border-emerald-500 text-emerald-500 bg-emerald-500/10' : 'border-primary text-primary bg-primary/10')
+                                  : 'border-white/10 text-white/5'
+                              }`}
+                            >
+                               {confirmPin[i] ? '•' : ''}
+                            </div>
+                          ))}
+                          <input 
+                            type="tel"
+                            maxLength={4}
+                            disabled={editPin.length !== 4}
+                            value={confirmPin}
+                            onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
+                            className="absolute inset-0 opacity-0 w-full cursor-pointer h-full"
+                          />
+                       </div>
+                    </div>
+                 </div>
+              </div>
+
+              <button 
+                onClick={handleSaveSecurity}
+                disabled={editPin.length !== 4 || confirmPin !== editPin}
+                className={`w-full h-16 font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-xl transition-all border border-white/10 mt-4 ${
+                  editPin.length === 4 && confirmPin === editPin 
+                    ? 'bg-primary text-white hover:bg-red-700 active:scale-[0.98]' 
+                    : 'bg-white/5 text-white/20'
+                }`}
+              >
+                Ganti Security PIN
+              </button>
+              <div className="h-10" />
+           </div>
+        </div>
+      )}
+
+      {/* QR Modal & Edit Modal */}
       {showQR && (
         <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
           <div className="bg-surface-dark w-full max-w-xs p-8 rounded-[40px] border border-white/10 flex flex-col items-center gap-6 shadow-2xl">
-            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-primary">Technician ID Card</h3>
+            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-primary">Credential Token</h3>
             <div className="bg-white p-6 rounded-3xl shadow-inner">
                <img 
-                 src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=TECH-${user.id}-${user.name.replace(/ /g, '_')}`} 
+                 src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=TECH-${user.id}`} 
                  alt="QR Code" 
                  className="w-48 h-48"
                />
             </div>
-            <div className="text-center">
-              <p className="text-sm font-black uppercase tracking-tight">{user.name}</p>
-              <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mt-1">Authorized Engineering Staff</p>
-            </div>
-            <button 
-              onClick={() => setShowQR(false)}
-              className="w-full py-4 bg-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-colors"
-            >
-              Close ID
-            </button>
+            <button onClick={() => setShowQR(false)} className="w-full py-4 bg-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white">Close</button>
           </div>
         </div>
       )}
 
-      {/* Edit Profile Modal */}
       {showEdit && (
         <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-end justify-center animate-in slide-in-from-bottom duration-300">
            <div className="bg-surface-dark w-full max-w-md rounded-t-[40px] border-t border-white/10 p-8 flex flex-col gap-6 shadow-2xl">
@@ -352,121 +471,23 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
                     <span className="material-symbols-outlined">close</span>
                  </button>
               </div>
-              
               <div className="flex flex-col gap-4">
-                 <div className="flex flex-col gap-1.5">
-                    <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Staff Name</label>
-                    <input 
-                      type="text" 
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      className="bg-background-dark/50 border-white/5 border rounded-2xl h-14 px-5 text-sm font-bold text-white focus:ring-1 focus:ring-primary"
-                    />
-                 </div>
-                 <div className="flex flex-col gap-1.5">
-                    <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Employee ID Code</label>
-                    <input 
-                      type="text" 
-                      value={editId}
-                      onChange={(e) => setEditId(e.target.value)}
-                      className="bg-background-dark/50 border-white/5 border rounded-2xl h-14 px-5 text-sm font-bold text-white focus:ring-1 focus:ring-primary"
-                    />
-                 </div>
+                 <input 
+                   type="text" 
+                   value={editName}
+                   onChange={(e) => setEditName(e.target.value)}
+                   className="bg-background-dark/50 border-white/5 border rounded-2xl h-14 px-5 text-sm font-bold text-white focus:ring-1 focus:ring-primary"
+                   placeholder="Name"
+                 />
+                 <input 
+                   type="text" 
+                   value={editId}
+                   onChange={(e) => setEditId(e.target.value)}
+                   className="bg-background-dark/50 border-white/5 border rounded-2xl h-14 px-5 text-sm font-bold text-white focus:ring-1 focus:ring-primary"
+                   placeholder="Staff ID"
+                 />
               </div>
-
-              <button 
-                onClick={handleSaveProfile}
-                className="w-full h-14 bg-primary text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-xl active:scale-[0.98] transition-all hover:bg-red-700 mt-2"
-              >
-                Update Profile
-              </button>
-              <div className="h-8" />
-           </div>
-        </div>
-      )}
-
-      {/* Privacy & Security Modal */}
-      {showSecurity && (
-        <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-end justify-center animate-in slide-in-from-bottom duration-300">
-           <div className="bg-surface-dark w-full max-w-md rounded-t-[40px] border-t border-white/10 p-8 flex flex-col gap-6 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar">
-              <div className="flex justify-between items-center">
-                 <div>
-                    <h3 className="text-sm font-black uppercase tracking-widest italic text-primary">Security Hub</h3>
-                    <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mt-1">Replace System PIN</p>
-                 </div>
-                 <button onClick={() => setShowSecurity(false)} className="text-text-muted hover:text-white transition-colors">
-                    <span className="material-symbols-outlined">close</span>
-                 </button>
-              </div>
-              
-              <div className="flex flex-col gap-5">
-                 <div className="flex flex-col gap-3">
-                    <div className="flex justify-between items-center mb-1">
-                       <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">New Security PIN</label>
-                       <span className="text-[8px] font-bold text-primary uppercase tracking-widest">Must be 4-Digits</span>
-                    </div>
-                    
-                    <div className="relative flex justify-center gap-3 py-2">
-                       {[0, 1, 2, 3].map((i) => (
-                         <div 
-                           key={i} 
-                           className={`w-14 h-16 rounded-2xl border-2 flex items-center justify-center text-3xl font-black transition-all ${
-                             editPin.length > i ? 'border-primary text-white bg-primary/10 shadow-lg' : 'border-white/10 text-white/10'
-                           }`}
-                         >
-                            {editPin[i] ? '•' : ''}
-                         </div>
-                       ))}
-                       <input 
-                         type="tel"
-                         autoFocus
-                         maxLength={4}
-                         value={editPin}
-                         onChange={(e) => setEditPin(e.target.value.replace(/\D/g, ''))}
-                         className="absolute inset-0 opacity-0 w-full cursor-pointer h-full"
-                       />
-                    </div>
-                 </div>
-
-                 <div className="bg-background-dark/30 p-4 rounded-2xl flex items-center justify-between border border-white/5">
-                    <div className="flex items-center gap-3">
-                       <span className="material-symbols-outlined text-primary">fingerprint</span>
-                       <span className="text-xs font-bold uppercase tracking-tight">Biometric Login</span>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={securityPrefs.biometrics} 
-                        onChange={() => updateSecurityToggle('biometrics')}
-                      />
-                      <div className="w-10 h-5 bg-background-dark peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                    </label>
-                 </div>
-
-                 <div className="bg-background-dark/30 p-4 rounded-2xl flex items-center justify-between border border-white/5">
-                    <div className="flex items-center gap-3">
-                       <span className="material-symbols-outlined text-primary">auto_delete</span>
-                       <span className="text-xs font-bold uppercase tracking-tight text-white">Auto-Wipe on Logout</span>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={securityPrefs.clearOnLogout} 
-                        onChange={() => updateSecurityToggle('clearOnLogout')}
-                      />
-                      <div className="w-10 h-5 bg-background-dark peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                    </label>
-                 </div>
-              </div>
-
-              <button 
-                onClick={handleSaveSecurity}
-                className="w-full h-14 bg-primary text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-xl active:scale-[0.98] transition-all hover:bg-red-700 mt-2"
-              >
-                Replace Security PIN
-              </button>
+              <button onClick={handleSaveProfile} className="w-full h-14 bg-primary text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-xl active:scale-[0.98]">Update Profile</button>
               <div className="h-8" />
            </div>
         </div>

@@ -28,7 +28,7 @@ const App: React.FC = () => {
 
   return (
     <Router>
-      <div className="max-w-md mx-auto h-screen relative bg-background-dark shadow-2xl overflow-hidden flex flex-col font-sans text-white">
+      <div className="app-container max-w-md mx-auto h-screen relative bg-background-dark shadow-2xl overflow-hidden flex flex-col font-sans text-white">
         <Routes>
           <Route path="/login" element={!isAuthenticated ? <Login onLogin={() => setIsAuthenticated(true)} /> : <Navigate to="/" />} />
           <Route path="/register" element={<Register />} />

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FireSafe Pro</title>
+    <title>Bestro Engineering - FireSafe Pro</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
@@ -48,21 +48,32 @@
             font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
         }
 
-        /* Print Optimization */
+        /* Professional PDF/Print Layout */
         @media print {
             @page {
                 size: A4;
-                margin: 0;
+                margin: 15mm;
             }
             body {
                 background-color: white !important;
                 color: black !important;
                 margin: 0;
                 padding: 0;
+                -webkit-print-color-adjust: exact;
             }
-            #root > div {
+            #root {
                 height: auto !important;
                 overflow: visible !important;
+            }
+            .app-container {
+                max-width: none !important;
+                height: auto !important;
+                overflow: visible !important;
+                background: white !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+                display: block !important;
             }
             .no-print {
                 display: none !important;
@@ -73,6 +84,9 @@
             .page-break {
                 page-break-before: always;
             }
+            /* Reset colors for black/white printing if needed, but keeping branding */
+            .text-primary { color: #ec1313 !important; }
+            .border-primary { border-color: #ec1313 !important; }
         }
         .print-only {
             display: none;
