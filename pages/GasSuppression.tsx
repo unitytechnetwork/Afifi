@@ -30,7 +30,8 @@ interface GasSystemEntry {
   heatQty: string;
   flashingLightQty: string;
   bellQty: string;
-  // Added agentType to interface to fix TypeScript error
+  blanketQty: string; // Added Trip Blanket Qty
+  // Added agentType
   agentType: string;
   // Physical Infrastructure
   pipingStatus: 'Normal' | 'Corroded' | 'Loose';
@@ -39,7 +40,7 @@ interface GasSystemEntry {
   // Logic & Interface Controls
   integrationItems: IntegrationItem[];
   // General
-  photos: string[]; // Updated to support multiple photos
+  photos: string[]; 
   remarks?: string;
 }
 
@@ -64,11 +65,12 @@ const GasSuppression: React.FC = () => {
     const saved = localStorage.getItem(`gas_suppression_${auditId}`);
     if (saved) {
       const parsed = JSON.parse(saved);
-      // Migrate legacy single photo to array if necessary and add new fields
+      // Migration logic to add new fields to existing data
       return parsed.map((s: any) => ({
         ...s,
         photos: s.photos || (s.photo ? [s.photo] : []),
-        chargerVolt: s.chargerVolt || '27.4'
+        chargerVolt: s.chargerVolt || '27.4',
+        blanketQty: s.blanketQty || '0'
       }));
     }
     return [{
@@ -88,6 +90,7 @@ const GasSuppression: React.FC = () => {
       heatQty: '0',
       flashingLightQty: '0',
       bellQty: '0',
+      blanketQty: '0',
       agentType: 'FM-200 (HFC-227ea)',
       pipingStatus: 'Normal',
       nozzleStatus: 'Clean',
@@ -122,6 +125,7 @@ const GasSuppression: React.FC = () => {
       heatQty: '0',
       flashingLightQty: '0',
       bellQty: '0',
+      blanketQty: '0',
       agentType: 'FM-200 (HFC-227ea)',
       pipingStatus: 'Normal',
       nozzleStatus: 'Clean',
@@ -243,59 +247,57 @@ const GasSuppression: React.FC = () => {
                   <span className="material-symbols-outlined text-primary text-sm">bolt</span>
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-text-muted italic">Part II: Power & Internal Health</h3>
                </div>
-               <div className="grid grid-cols-1 gap-4">
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="flex flex-col gap-1">
-                       <label className="text-[8px] font-black text-text-muted uppercase tracking-widest ml-1 text-center">Volt Meter (V)</label>
-                       <input 
-                          type="text" 
-                          value={activeSystem.batteryVolt}
-                          onChange={(e) => updateActiveSystem({ batteryVolt: e.target.value })}
-                          className="bg-background-dark/50 border-none rounded-xl h-11 px-2 text-center text-xs font-black text-emerald-500"
-                       />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                       <label className="text-[8px] font-black text-text-muted uppercase tracking-widest ml-1 text-center">Charger Volt (V)</label>
-                       <input 
-                          type="text" 
-                          value={activeSystem.chargerVolt}
-                          onChange={(e) => updateActiveSystem({ chargerVolt: e.target.value })}
-                          className="bg-background-dark/50 border-none rounded-xl h-11 px-2 text-center text-xs font-black text-blue-400"
-                       />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                       <label className="text-[8px] font-black text-text-muted uppercase tracking-widest ml-1 text-center">Amp Meter (A)</label>
-                       <input 
-                          type="text" 
-                          value={activeSystem.ampMeter}
-                          onChange={(e) => updateActiveSystem({ ampMeter: e.target.value })}
-                          className="bg-background-dark/50 border-none rounded-xl h-11 px-2 text-center text-xs font-black text-amber-500"
-                       />
-                    </div>
+               <div className="grid grid-cols-3 gap-3">
+                  <div className="flex flex-col gap-1">
+                     <label className="text-[8px] font-black text-text-muted uppercase tracking-widest ml-1 text-center">Volt Meter (V)</label>
+                     <input 
+                        type="text" 
+                        value={activeSystem.batteryVolt}
+                        onChange={(e) => updateActiveSystem({ batteryVolt: e.target.value })}
+                        className="bg-background-dark/50 border-none rounded-xl h-11 px-2 text-center text-xs font-black text-emerald-500"
+                     />
                   </div>
-                  
-                  <div className="grid grid-cols-3 gap-2">
-                     {[
-                        { label: 'Main Fail', key: 'acDcStatus', options: ['Normal', 'Fault'] },
-                        { label: 'Fuse Status', key: 'fuseStatus', options: ['Normal', 'Blown'] },
-                        { label: 'Test Battery', key: 'testBatteryStatus', options: ['Functional', 'Faulty'] }
-                     ].map(item => (
-                        <div key={item.key} className="bg-background-dark/30 p-2 rounded-xl border border-white/5 flex flex-col items-center">
-                           <span className="text-[6px] font-black uppercase text-text-muted mb-2">{item.label}</span>
-                           <div className="flex flex-col gap-1 w-full">
-                              {item.options.map(opt => (
-                                 <button
-                                    key={opt}
-                                    onClick={() => updateActiveSystem({ [item.key]: opt })}
-                                    className={`py-1 rounded text-[7px] font-black uppercase transition-all ${activeSystem[item.key as keyof GasSystemEntry] === opt ? (opt === 'Normal' || opt === 'Functional' ? 'bg-emerald-600' : 'bg-primary') + ' text-white' : 'bg-background-dark/50 text-text-muted'}`}
-                                 >
-                                    {opt}
-                                 </button>
-                              ))}
-                           </div>
+                  <div className="flex flex-col gap-1">
+                     <label className="text-[8px] font-black text-text-muted uppercase tracking-widest ml-1 text-center">Charger Volt (V)</label>
+                     <input 
+                        type="text" 
+                        value={activeSystem.chargerVolt}
+                        onChange={(e) => updateActiveSystem({ chargerVolt: e.target.value })}
+                        className="bg-background-dark/50 border-none rounded-xl h-11 px-2 text-center text-xs font-black text-blue-400"
+                     />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                     <label className="text-[8px] font-black text-text-muted uppercase tracking-widest ml-1 text-center">Amp Meter (A)</label>
+                     <input 
+                        type="text" 
+                        value={activeSystem.ampMeter}
+                        onChange={(e) => updateActiveSystem({ ampMeter: e.target.value })}
+                        className="bg-background-dark/50 border-none rounded-xl h-11 px-2 text-center text-xs font-black text-amber-500"
+                     />
+                  </div>
+               </div>
+               
+               <div className="grid grid-cols-3 gap-2 mt-4">
+                  {[
+                     { label: 'Main Fail', key: 'acDcStatus', options: ['Normal', 'Fault'] },
+                     { label: 'Fuse Status', key: 'fuseStatus', options: ['Normal', 'Blown'] },
+                     { label: 'Test Battery', key: 'testBatteryStatus', options: ['Functional', 'Faulty'] }
+                  ].map(item => (
+                     <div key={item.key} className="bg-background-dark/30 p-2 rounded-xl border border-white/5 flex flex-col items-center">
+                        <span className="text-[6px] font-black uppercase text-text-muted mb-2">{item.label}</span>
+                        <div className="flex flex-col gap-1 w-full">
+                           {item.options.map(opt => (
+                              <button
+                                 key={opt}
+                                 onClick={() => updateActiveSystem({ [item.key as keyof GasSystemEntry]: opt } as any)}
+                                 className={`py-1 rounded text-[7px] font-black uppercase transition-all ${activeSystem[item.key as keyof GasSystemEntry] === opt ? (opt === 'Normal' || opt === 'Functional' ? 'bg-emerald-600' : 'bg-primary') + ' text-white' : 'bg-background-dark/50 text-text-muted'}`}
+                              >
+                                 {opt}
+                              </button>
+                           ))}
                         </div>
-                     ))}
-                  </div>
+                     </div>
+                  ))}
                </div>
             </section>
 
@@ -305,16 +307,17 @@ const GasSuppression: React.FC = () => {
                   <span className="material-symbols-outlined text-primary text-sm">inventory</span>
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-text-muted italic">Part III: Local Device Inventory</h3>
                </div>
-               <div className="grid grid-cols-4 gap-2">
+               <div className="grid grid-cols-5 gap-2">
                   {[
                     { label: 'Smoke', key: 'smokeQty', icon: 'detector_smoke' },
                     { label: 'Heat', key: 'heatQty', icon: 'heat' },
                     { label: 'Flash Light', key: 'flashingLightQty', icon: 'flashlight_on' },
-                    { label: 'Bell', key: 'bellQty', icon: 'notifications' }
+                    { label: 'Bell', key: 'bellQty', icon: 'notifications' },
+                    { label: 'Blanket Trip', key: 'blanketQty', icon: 'curtains' }
                   ].map(device => (
                     <div key={device.key} className="bg-background-dark/50 rounded-xl p-2 flex flex-col items-center border border-white/5">
                        <span className="material-symbols-outlined text-[10px] text-primary/50 mb-1">{device.icon}</span>
-                       <span className="text-[6px] font-black uppercase text-text-muted tracking-tighter mb-1">{device.label}</span>
+                       <span className="text-[6px] font-black uppercase text-text-muted tracking-tighter mb-1 text-center">{device.label}</span>
                        <input 
                           type="number" 
                           value={activeSystem[device.key as keyof GasSystemEntry] as string} 
@@ -326,7 +329,7 @@ const GasSuppression: React.FC = () => {
                </div>
             </section>
 
-            {/* Part IV: Physical Distribution (Piping & Nozzles) */}
+            {/* Part IV: Physical Distribution */}
             <section className="bg-surface-dark p-5 rounded-2xl border border-white/5 shadow-xl">
                <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
                   <span className="material-symbols-outlined text-primary text-sm">account_tree</span>
@@ -381,7 +384,7 @@ const GasSuppression: React.FC = () => {
                </div>
             </section>
 
-            {/* Visual Proof / Forensic Evidence (Updated to 4 Photos) */}
+            {/* Visual Proof Section */}
             <section className="bg-surface-dark p-5 rounded-2xl border border-white/5 shadow-xl">
                <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
                   <span className="material-symbols-outlined text-primary text-sm">photo_camera</span>

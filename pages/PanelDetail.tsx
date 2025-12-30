@@ -176,7 +176,12 @@ const PanelDetail: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-background-dark overflow-y-auto no-scrollbar pb-32">
-      <TopBar title="Technical Registry" subtitle={`REF: ${auditId}`} showBack />
+      <TopBar 
+        title="Technical Registry" 
+        subtitle={`REF: ${auditId}`} 
+        showBack 
+        onBack={() => navigate(`/checklist/${auditId}`)}
+      />
 
       <div className="p-4 flex flex-col gap-6 animate-in fade-in duration-500">
         
@@ -277,7 +282,7 @@ const PanelDetail: React.FC = () => {
            </div>
         </section>
 
-        {/* Part III: Module Card Registry - Updated for Fault Proofs */}
+        {/* Part III: Module Card Registry */}
         <section className="bg-surface-dark p-5 rounded-2xl border border-white/5 shadow-xl">
            <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
               <span className="material-symbols-outlined text-primary text-sm">memory</span>
@@ -299,7 +304,7 @@ const PanelDetail: React.FC = () => {
            </div>
         </section>
 
-        {/* Part IV: Integration Signals - Updated for Fault Proofs */}
+        {/* Part IV: Integration Signals */}
         <section className="bg-surface-dark p-5 rounded-2xl border border-white/5 shadow-xl">
            <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
               <span className="material-symbols-outlined text-primary text-sm">hub</span>
@@ -329,7 +334,7 @@ const PanelDetail: React.FC = () => {
            </div>
         </section>
 
-        {/* Part V: Zone Registry - Updated for Fault Proofs */}
+        {/* Part V: Zone Registry */}
         <section className="bg-surface-dark p-5 rounded-2xl border border-white/5 shadow-xl">
            <div className="flex items-center justify-between mb-4 border-b border-white/5 pb-3">
               <div className="flex items-center gap-2">

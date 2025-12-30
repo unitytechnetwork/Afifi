@@ -1,13 +1,37 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import { MOCK_USER } from '../constants';
+import { InspectionStatus, User } from '../types';
 
-const SignaturePad: React.FC<{ onSign: (data: string) => void; placeholder: string }> = ({ onSign, placeholder }) => {
+interface SignaturePadProps {
+  onSign: (data: string) => void;
+  placeholder: string;
+  initialData?: string;
+}
+
+const SignaturePad: React.FC<SignaturePadProps> = ({ onSign, placeholder, initialData }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEmpty, setIsEmpty] = useState(true);
+
+  // Load existing signature onto canvas
+  useEffect(() => {
+    if (initialData && canvasRef.current) {
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const img = new Image();
+        img.onload = () => {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+          setIsEmpty(false);
+        };
+        img.src = initialData;
+      }
+    }
+  }, [initialData]);
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
     setIsDrawing(true);
@@ -92,9 +116,15 @@ const SignaturePad: React.FC<{ onSign: (data: string) => void; placeholder: stri
 const InspectionCover: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-  const isNew = id === 'new';
-  const activeId = isNew ? `AUDIT-${Date.now()}` : id || 'UNKNOWN';
+  
+  // Ensure we have a valid ID. If somehow accessed via /new, it generates one once.
+  const [activeId] = useState(id && id !== 'new' ? id : `AUDIT-${Date.now()}`);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [currentUser] = useState<User>(() => {
+    const saved = localStorage.getItem('current_user');
+    return saved ? JSON.parse(saved) : MOCK_USER;
+  });
 
   const [clientName, setClientName] = useState('');
   const [location, setLocation] = useState('');
@@ -103,6 +133,53 @@ const InspectionCover: React.FC = () => {
   const [clientSigData, setClientSigData] = useState('');
   const [techSigData, setTechSigData] = useState('');
   const [coverPhoto, setCoverPhoto] = useState<string | null>(null);
+  const [currentStatus, setCurrentStatus] = useState<InspectionStatus>(InspectionStatus.DRAFT);
+
+  // Load data on mount
+  useEffect(() => {
+    const saved = localStorage.getItem(`setup_${activeId}`);
+    if (saved) {
+      const data = JSON.parse(saved);
+      setClientName(data.clientName || '');
+      setLocation(data.location || '');
+      setFrequency(data.frequency || 'Monthly');
+      setDate(data.date || new Date().toISOString().split('T')[0]);
+      setClientSigData(data.clientSigData || '');
+      setTechSigData(data.techSigData || '');
+      setCoverPhoto(data.coverPhoto || null);
+      setCurrentStatus(data.status || InspectionStatus.DRAFT);
+    } else {
+      // If it's a completely new audit, initialize it with current technician info
+      // so it appears on the dashboard immediately
+      const initialSetup = {
+        clientName: '',
+        location: '',
+        frequency: 'Monthly',
+        date: new Date().toISOString().split('T')[0],
+        technicianId: currentUser.id,
+        techName: currentUser.name,
+        status: InspectionStatus.DRAFT
+      };
+      localStorage.setItem(`setup_${activeId}`, JSON.stringify(initialSetup));
+    }
+  }, [activeId, currentUser]);
+
+  // Auto-save data on every change
+  useEffect(() => {
+    const setupData = { 
+      clientName, 
+      location, 
+      frequency, 
+      date, 
+      clientSigData, 
+      techSigData, 
+      coverPhoto,
+      status: currentStatus,
+      technicianId: currentUser.id, // Keep tech ID persistent
+      techName: currentUser.name
+    };
+    localStorage.setItem(`setup_${activeId}`, JSON.stringify(setupData));
+  }, [clientName, location, frequency, date, clientSigData, techSigData, coverPhoto, activeId, currentStatus, currentUser]);
 
   const handlePhotoClick = () => {
     fileInputRef.current?.click();
@@ -124,17 +201,12 @@ const InspectionCover: React.FC = () => {
       alert("Please ensure Building Name, Location, and both Signatures are completed.");
       return;
     }
-    
-    // Persist basic setup info
-    const setupData = { clientName, location, frequency, date, clientSigData, techSigData, coverPhoto };
-    localStorage.setItem(`setup_${activeId}`, JSON.stringify(setupData));
-    
     navigate(`/checklist/${activeId}`);
   };
 
   return (
     <div className="flex flex-col h-full bg-background-dark overflow-y-auto no-scrollbar pb-32">
-      <TopBar title="Report Setup" showBack />
+      <TopBar title="Report Setup" showBack onBack={() => navigate('/')} />
       
       <div className="p-5 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom duration-500">
         <div className="flex flex-col items-center gap-3 text-center py-2">
@@ -218,7 +290,7 @@ const InspectionCover: React.FC = () => {
                 <span className="material-symbols-outlined text-primary text-sm">person_pin</span>
                 <h3 className="text-[10px] font-black uppercase tracking-widest italic">Client Authorization</h3>
              </div>
-             <SignaturePad onSign={setClientSigData} placeholder="Client Signature Required" />
+             <SignaturePad onSign={setClientSigData} placeholder="Client Signature Required" initialData={clientSigData} />
           </div>
 
           <div className="bg-surface-dark p-5 rounded-2xl border border-white/5 flex flex-col gap-4 shadow-xl">
@@ -227,10 +299,10 @@ const InspectionCover: React.FC = () => {
                 <h3 className="text-[10px] font-black uppercase tracking-widest italic">Technician Sign-off</h3>
              </div>
              <div className="flex justify-between items-center mb-1">
-                <span className="text-[8px] font-black text-text-muted uppercase tracking-widest">Tech: {MOCK_USER.name}</span>
+                <span className="text-[8px] font-black text-text-muted uppercase tracking-widest">Tech: {currentUser.name}</span>
                 <span className="text-[8px] font-black text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-widest">Verified</span>
              </div>
-             <SignaturePad onSign={setTechSigData} placeholder="Draw Technician Signature" />
+             <SignaturePad onSign={setTechSigData} placeholder="Draw Technician Signature" initialData={techSigData} />
           </div>
         </div>
       </div>

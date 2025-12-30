@@ -6,18 +6,27 @@ interface TopBarProps {
   title: string;
   subtitle?: string;
   showBack?: boolean;
+  onBack?: () => void;
   onSave?: () => void;
 }
 
-const TopBar: React.FC<TopBarProps> = ({ title, subtitle, showBack, onSave }) => {
+const TopBar: React.FC<TopBarProps> = ({ title, subtitle, showBack, onBack, onSave }) => {
   const navigate = useNavigate();
+
+  const handleBack = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      navigate(-1);
+    }
+  };
 
   return (
     <div className="sticky top-0 z-50 bg-background-dark/95 backdrop-blur-md border-b border-white/5 px-4 py-4">
       <div className="flex items-center justify-between">
         {showBack ? (
           <button 
-            onClick={() => navigate(-1)}
+            onClick={handleBack}
             className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors"
           >
             <span className="material-symbols-outlined">arrow_back</span>

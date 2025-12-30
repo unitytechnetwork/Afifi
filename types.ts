@@ -32,6 +32,7 @@ export interface Inspection {
   itemsCompleted: number;
   totalItems: number;
   technician: string;
+  technicianId?: string; // ID of the assigned technician
 }
 
 export interface User {
@@ -41,4 +42,6 @@ export interface User {
   email: string;
   avatar: string;
   status: 'online' | 'offline' | 'busy';
+  pin?: string;
+  hasBiometric?: boolean;
 }

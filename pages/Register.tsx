@@ -10,6 +10,7 @@ const Register: React.FC = () => {
     name: '',
     staffId: '',
     email: '',
+    role: 'Technician' as 'Technician' | 'Supervisor',
     pin: '',
     confirmPin: '',
     enableBiometric: false
@@ -59,7 +60,7 @@ const Register: React.FC = () => {
       id: formData.staffId,
       name: formData.name,
       email: formData.email,
-      role: 'Technician',
+      role: formData.role,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${formData.staffId}`,
       status: 'online',
       pin: formData.pin,
@@ -78,7 +79,7 @@ const Register: React.FC = () => {
     registry.push(newUser);
     localStorage.setItem('users_registry', JSON.stringify(registry));
 
-    alert("Technician registration successful! You can now log in.");
+    alert(`Registration successful! You are now registered as a ${formData.role}. Please log in.`);
     navigate('/login');
   };
 
@@ -142,6 +143,23 @@ const Register: React.FC = () => {
                 placeholder="name@bestro.com"
               />
               <span className="material-symbols-outlined text-text-muted text-sm">mail</span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted ml-1">Job Role</label>
+            <div className="flex items-center bg-[#2a1b1b] border border-border-dark rounded-xl px-4 h-12 focus-within:border-primary transition-colors">
+              <select 
+                value={formData.role}
+                onChange={(e) => setFormData({...formData, role: e.target.value as any})}
+                className="bg-transparent border-none focus:ring-0 text-white w-full text-sm font-bold appearance-none"
+              >
+                <option value="Technician" className="bg-surface-dark">Technician (Field Auditor)</option>
+                <option value="Supervisor" className="bg-surface-dark">Supervisor (Job Assigner)</option>
+              </select>
+              <span className="material-symbols-outlined text-text-muted text-sm">
+                {formData.role === 'Supervisor' ? 'verified_user' : 'engineering'}
+              </span>
             </div>
           </div>
 

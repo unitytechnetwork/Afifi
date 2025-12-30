@@ -107,16 +107,20 @@ const Checklist: React.FC = () => {
 
   const handleSystemClick = (cat: SystemCategory, isNA: boolean) => {
     if (isNA) {
-      // Per user request: cannot enter if N/A. Must toggle back N/A to edit.
       return;
     }
-    // Completed or Faulty systems CAN be opened back to "repair balik"
     navigate(cat.path);
   };
 
   return (
     <div className="flex flex-col h-full bg-background-dark overflow-y-auto no-scrollbar pb-32">
-      <TopBar title="System Technical Hub" subtitle={`AUDIT #${currentId}`} showBack onSave={() => navigate('/')} />
+      <TopBar 
+        title="System Technical Hub" 
+        subtitle={`AUDIT #${currentId}`} 
+        showBack 
+        onBack={() => navigate(`/inspection-cover/${currentId}`)}
+        onSave={() => navigate('/')} 
+      />
 
       <div className="p-4 flex flex-col gap-6">
         
@@ -208,7 +212,7 @@ const Checklist: React.FC = () => {
           onClick={() => allComplete && navigate(`/summary/${currentId}`)} 
           disabled={!allComplete}
           className={`w-full h-14 font-black uppercase tracking-[0.2em] text-sm rounded-2xl shadow-2xl flex items-center justify-center gap-4 active:scale-95 transition-all 
-            ${allComplete ? 'bg-primary text-white shadow-primary/30' : 'bg-white/5 text-white/10 cursor-not-allowed border border-white/5'}`}
+            ${allComplete ? 'bg-primary text-white shadow-primary/30' : 'bg-white/5 text-white/20 cursor-not-allowed border border-white/5'}`}
         >
           <span>{allComplete ? 'Generate Full Report' : 'Incomplete Registry'}</span>
           <span className="material-symbols-outlined">{allComplete ? 'description' : 'lock'}</span>

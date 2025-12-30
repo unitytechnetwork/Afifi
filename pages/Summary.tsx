@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import TopBar from '../components/TopBar';
+import { InspectionStatus } from '../types';
 
 const SignaturePad: React.FC<{ onSign: (data: string) => void; placeholder: string }> = ({ onSign, placeholder }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -153,6 +154,16 @@ const Summary: React.FC = () => {
       return;
     }
     setIsSubmitting(true);
+    
+    // Save status as SUBMITTED to setup data
+    const auditId = id || 'NEW-AUDIT';
+    const savedSetup = localStorage.getItem(`setup_${auditId}`);
+    if (savedSetup) {
+      const data = JSON.parse(savedSetup);
+      data.status = InspectionStatus.SUBMITTED;
+      localStorage.setItem(`setup_${auditId}`, JSON.stringify(data));
+    }
+
     await new Promise(resolve => setTimeout(resolve, 1500));
     navigate('/success', { state: { auditId: id || 'NEW-AUDIT' } });
   };
