@@ -61,7 +61,7 @@ const PhotoService: React.FC = () => {
       }
 
       cardConditions?.forEach((c: any) => {
-        if (c.photo) {
+        if (c && c.photo) {
           list.push({
             id: c.id,
             tag: 'Logic Module',
@@ -74,7 +74,7 @@ const PhotoService: React.FC = () => {
       });
 
       zones?.forEach((z: any) => {
-        if (z.photo) {
+        if (z && z.photo) {
           list.push({
             id: z.id,
             tag: `Zone Registry: ${z.name}`,
@@ -87,10 +87,10 @@ const PhotoService: React.FC = () => {
       });
     }
 
-    // 1. Gas Suppression Evidence (Multi-Sheet & Multi-Photo Support)
+    // 1. Gas Suppression Evidence
     if (Array.isArray(gasData)) {
       gasData.forEach((gas, idx) => {
-        // Collect from the new photos[] array (up to 4)
+        if (!gas) return;
         if (Array.isArray(gas.photos)) {
           gas.photos.forEach((pUrl: string, pIdx: number) => {
             if (pUrl) {
@@ -106,10 +106,9 @@ const PhotoService: React.FC = () => {
           });
         }
         
-        // Also collect photos from integrationItems if present
         if (Array.isArray(gas.integrationItems)) {
            gas.integrationItems.forEach((item: any) => {
-              if (item.photo) {
+              if (item && item.photo) {
                 list.push({
                   id: `gas_item_${item.id}`,
                   tag: 'Gas Logic Output',
@@ -159,12 +158,11 @@ const PhotoService: React.FC = () => {
         </div>
 
         <div className="print-only hidden text-black border-b-2 border-black pb-4 mb-8">
-           <h1 className="text-3xl font-black uppercase italic">Visual Evidence Report</h1>
+           <svg width="80" height="40" viewBox="0 0 240 120" xmlns="http://www.w3.org/2000/svg"><ellipse cx="120" cy="60" rx="110" ry="52" fill="#ec1313" /><text x="100" y="66" font-family="Arial Black, sans-serif" font-size="42" font-weight="900" fill="white" text-anchor="middle" letter-spacing="-1.5">BESTR</text><g transform="translate(178, 55)"><circle cx="0" cy="0" r="17" fill="white" /><path d="M0 -9C0 -9 6 -3 6 3C6 9 0 12 0 12C0 12 -6 9 -6 3C-6 -3 0 -9 0 -9Z" fill="#ec1313" /></g><text x="120" y="88" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="white" text-anchor="middle" letter-spacing="5">ENGINEERING</text></svg>
+           <h1 className="text-2xl font-black uppercase italic mt-2">Visual Evidence Report</h1>
            <div className="grid grid-cols-2 gap-4 mt-2 text-[10px] font-bold uppercase">
-              <p>Site: {setupData?.clientName}</p>
-              <p>Date: {setupData?.date}</p>
-              <p>Registry ID: {id}</p>
-              <p>Technician: {setupData?.techName || 'Bestro Engineering'}</p>
+              <p>Site: ${setupData?.clientName}</p>
+              <p>Registry ID: ${id}</p>
            </div>
         </div>
 
@@ -174,31 +172,22 @@ const PhotoService: React.FC = () => {
               <div key={item.id} className="bg-surface-dark rounded-3xl overflow-hidden border border-white/5 shadow-2xl flex flex-col md:flex-row group transition-all hover:border-white/10 print:border-black print:bg-white print:shadow-none print:rounded-none print:break-inside-avoid print:flex-row">
                 <div className="w-full md:w-1/2 aspect-video relative overflow-hidden bg-black/40 shrink-0 print:w-1/3">
                   <img src={item.url} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" alt={item.source} />
-                  <div className="absolute top-4 left-4 flex gap-2 no-print">
-                     <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border ${item.status === 'Faulty' || item.status === 'Defective' || item.status === 'DEFECT' || item.status === 'Fault' || item.status === 'Faulty' || item.status === 'Blown' ? 'bg-primary border-primary/20' : 'bg-emerald-600 border-emerald-600/20'}`}>
-                        {item.status}
-                     </span>
-                  </div>
                 </div>
                 
                 <div className="flex-1 p-6 flex flex-col justify-between print:text-black print:p-4">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                       <span className="text-[9px] font-black text-primary uppercase tracking-widest print:text-black">{item.tag}</span>
+                       <span className="text-[9px] font-black text-primary uppercase tracking-widest print:text-black">${item.tag}</span>
                        <div className="h-px flex-1 bg-white/5 print:bg-black/10" />
                     </div>
-                    <h3 className="text-lg font-black uppercase tracking-tight leading-tight mb-4 print:text-sm print:mb-2">{item.source}</h3>
+                    <h3 className="text-lg font-black uppercase tracking-tight leading-tight mb-4 print:text-sm print:mb-2">${item.source}</h3>
                     
                     <div className="bg-background-dark/50 p-4 rounded-xl border border-white/5 print:bg-gray-100 print:border-black/10 print:p-2">
                        <p className="text-[8px] font-black text-text-muted uppercase tracking-[0.2em] mb-2 print:text-gray-500">Technician Remarks</p>
                        <p className="text-xs italic font-medium leading-relaxed print:text-[10px]">
-                          "{item.remarks || "Observation recorded without additional technical commentary."}"
+                          "${item.remarks || "No additional commentary recorded."}"
                        </p>
                     </div>
-                  </div>
-                  <div className="mt-6 flex items-center justify-between opacity-40 no-print">
-                     <span className="text-[8px] font-black uppercase tracking-widest">Digitally Verified Proof</span>
-                     <span className="material-symbols-outlined text-sm">verified</span>
                   </div>
                 </div>
               </div>
@@ -208,17 +197,8 @@ const PhotoService: React.FC = () => {
           <div className="flex flex-col items-center justify-center py-24 gap-4 opacity-20 text-center">
             <span className="material-symbols-outlined text-6xl">no_photography</span>
             <p className="font-black uppercase tracking-[0.3em] text-sm">No Assets Found</p>
-            <button 
-              onClick={() => navigate(`/checklist/${id}`)}
-              className="mt-4 px-6 py-2 bg-white/5 border border-white/10 rounded-full text-[9px] font-black uppercase tracking-widest"
-            >
-              Return to Checklist
-            </button>
           </div>
         )}
-      </div>
-      <div className="p-8 text-center opacity-20 no-print mt-auto">
-         <p className="text-[9px] font-black uppercase tracking-[0.4em]">Bestro Engineering Group • Evidence Archive v2.4</p>
       </div>
     </div>
   );

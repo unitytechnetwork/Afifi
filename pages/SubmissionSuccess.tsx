@@ -51,17 +51,17 @@ const SubmissionSuccess: React.FC = () => {
     const date = setupData?.date || 'N/A';
     const tech = setupData?.techName || 'N/A';
     
+    // Updated "Kemas" Logo for Report Header
     const logoSvg = `<svg width="120" height="60" viewBox="0 0 240 120" xmlns="http://www.w3.org/2000/svg"><ellipse cx="120" cy="60" rx="110" ry="52" fill="#ec1313" /><text x="100" y="66" font-family="Arial Black, sans-serif" font-size="42" font-weight="900" fill="white" text-anchor="middle" letter-spacing="-1.5">BESTR</text><g transform="translate(178, 55)"><circle cx="0" cy="0" r="17" fill="white" /><path d="M0 -9C0 -9 6 -3 6 3C6 9 0 12 0 12C0 12 -6 9 -6 3C-6 -3 0 -9 0 -9Z" fill="#ec1313" /></g><text x="120" y="88" font-family="Arial, sans-serif" font-size="11" font-weight="800" fill="white" text-anchor="middle" letter-spacing="5">ENGINEERING</text></svg>`;
 
-    // Detailed renderers for different data types
     const renderDataRows = (data: any) => {
       let rows = '';
       const skip = ['photos', 'photo', 'isNA', 'id', 'remarks', 'integrationItems', 'cardConditions', 'zones', 'panelSpecs', 'items'];
       
       Object.entries(data).forEach(([key, val]) => {
-        if (!skip.includes(key) && typeof val !== 'object') {
+        if (!skip.includes(key) && val !== null && typeof val !== 'object') {
           const label = key.replace(/([A-Z])/g, ' $1').toUpperCase();
-          rows += `<tr><td class="p-1 font-bold w-1/2">${label}</td><td class="p-1">${val}</td></tr>`;
+          rows += `<tr><td class="p-1 font-bold w-1/2 border-b border-gray-100">${label}</td><td class="p-1 border-b border-gray-100">${val}</td></tr>`;
         }
       });
       return rows;
@@ -70,32 +70,32 @@ const SubmissionSuccess: React.FC = () => {
     const sectionsHtml = Object.entries(fullReportData).map(([label, data]: [string, any]) => {
       if (!data || data.isNA) return '';
       
-      let subContent = `<table class="w-full text-[10px] mb-2 border-collapse border border-slate-200"><tbody>${renderDataRows(data)}</tbody></table>`;
+      let subContent = `<table class="w-full text-[10px] mb-2 border-collapse"><tbody>${renderDataRows(data)}</tbody></table>`;
       
-      // Handle special nested arrays (like Fire Extinguisher items or Pump units)
       if (data.items && Array.isArray(data.items)) {
         data.items.forEach((item: any, i: number) => {
-           subContent += `<div class="bg-slate-50 p-2 mb-1 border border-slate-200"><p class="text-[9px] font-bold">UNIT #${i+1}: ${item.location || 'N/A'}</p><table class="w-full text-[8px]">${renderDataRows(item)}</table></div>`;
+           if (item) {
+             subContent += `<div class="bg-gray-50 p-2 mb-1 border border-gray-200 rounded"><p class="text-[9px] font-bold uppercase mb-1">UNIT #${i+1}: ${item.location || 'N/A'}</p><table class="w-full text-[8px] border-collapse">${renderDataRows(item)}</table></div>`;
+           }
         });
       }
 
-      // Handle photos in this section
       let photoHtml = '';
       const allPhotos = [...(data.photos || []), data.photo, data.panelPhoto, data.batteryPhoto].filter(Boolean);
       if (allPhotos.length > 0) {
         photoHtml = `<div class="grid grid-cols-4 gap-2 mt-2">`;
         allPhotos.forEach(p => {
-          photoHtml += `<div class="border border-slate-200 p-1"><img src="${p}" class="w-full h-16 object-cover" /></div>`;
+          photoHtml += `<div class="border border-gray-200 rounded overflow-hidden p-0.5 bg-white"><img src="${p}" class="w-full h-16 object-cover" /></div>`;
         });
         photoHtml += `</div>`;
       }
 
       return `
-        <div class="mb-6 break-inside-avoid">
-          <div class="bg-[#ec1313] text-white px-3 py-1 text-[10px] font-black uppercase mb-2">${label}</div>
+        <div class="mb-8 break-inside-avoid">
+          <div class="bg-[#ec1313] text-white px-3 py-1.5 text-[10px] font-black uppercase mb-2 rounded-sm shadow-sm">${label}</div>
           ${subContent}
           ${photoHtml}
-          ${data.remarks || data.overallRemarks ? `<p class="text-[9px] italic mt-1 font-medium text-slate-600">REMARKS: ${data.remarks || data.overallRemarks}</p>` : ''}
+          ${data.remarks || data.overallRemarks ? `<div class="mt-2 p-2 bg-yellow-50 border-l-4 border-yellow-400 text-[9px] italic font-medium text-gray-700">OBSERVATION: ${data.remarks || data.overallRemarks}</div>` : ''}
         </div>
       `;
     }).join('');
@@ -109,70 +109,79 @@ const SubmissionSuccess: React.FC = () => {
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-    body { font-family: 'Inter', sans-serif; padding: 15mm; background: white; color: black; }
-    table tr { border-bottom: 1px solid #eee; }
-    @media print { .no-print { display: none; } body { padding: 0; } }
+    body { font-family: 'Inter', sans-serif; padding: 15mm; background: white; color: black; line-height: 1.4; }
+    @media print { .no-print { display: none; } body { padding: 0; } .break-inside-avoid { break-inside: avoid; } }
   </style>
 </head>
 <body class="text-slate-900">
-  <div class="max-w-[210mm] mx-auto border-2 border-slate-100 p-8 shadow-sm">
+  <div class="max-w-[210mm] mx-auto">
     <!-- COVER PAGE -->
-    <div class="flex justify-between items-start border-b-4 border-[#ec1313] pb-6 mb-8">
+    <div class="flex justify-between items-start border-b-8 border-[#ec1313] pb-8 mb-10">
       <div>
         ${logoSvg}
-        <h1 class="text-3xl font-black uppercase mt-4">Maintenance Service Report</h1>
-        <p class="text-[10px] font-bold text-slate-500 tracking-[0.3em] uppercase italic">Connect & Protect</p>
+        <h1 class="text-4xl font-black uppercase mt-6 tracking-tight">Maintenance Service Report</h1>
+        <p class="text-[12px] font-bold text-slate-500 tracking-[0.4em] uppercase italic mt-1">Connect & Protect</p>
       </div>
       <div class="text-right">
-        <div class="bg-slate-100 p-4 rounded-xl">
-          <p class="text-[10px] font-black text-slate-400 uppercase">Registry Reference</p>
-          <p class="text-xl font-black text-[#ec1313]">${auditId}</p>
+        <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+          <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Registry Reference</p>
+          <p class="text-2xl font-black text-[#ec1313] tracking-tighter">${auditId}</p>
         </div>
-        <p class="text-[10px] font-bold mt-4">DATE: ${date}</p>
+        <p class="text-[12px] font-black mt-6 uppercase">DATE: <span class="text-slate-500">${date}</span></p>
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-8 mb-10">
-      <div class="border-l-4 border-slate-200 pl-4">
-        <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Site Information</h3>
-        <p class="text-lg font-black uppercase">${site}</p>
-        <p class="text-xs font-bold text-slate-600">${setupData?.location || 'N/A'}</p>
+    <div class="grid grid-cols-2 gap-10 mb-12">
+      <div class="border-l-4 border-[#ec1313] pl-6">
+        <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 italic">Site Information</h3>
+        <p class="text-xl font-black uppercase text-slate-900 mb-1">${site}</p>
+        <p class="text-sm font-bold text-slate-600">${setupData?.location || 'General Site Location'}</p>
       </div>
-      <div class="border-l-4 border-slate-200 pl-4">
-        <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Service Provider</h3>
-        <p class="text-lg font-black uppercase">${tech}</p>
-        <p class="text-xs font-bold text-slate-600">Bestro Engineering Field Team</p>
+      <div class="border-l-4 border-slate-200 pl-6">
+        <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 italic">Service Provider</h3>
+        <p class="text-xl font-black uppercase text-slate-900 mb-1">${tech}</p>
+        <p class="text-sm font-bold text-slate-600 uppercase">Bestro Engineering Field Team</p>
       </div>
     </div>
 
     <!-- TECHNICAL DETAILS -->
-    <div class="mb-10">
-      <h2 class="text-sm font-black uppercase border-b-2 border-slate-900 pb-1 mb-4">Detailed Inspection Checklist</h2>
+    <div class="mb-12">
+      <h2 class="text-base font-black uppercase border-b-2 border-slate-900 pb-2 mb-6 flex items-center gap-2">
+        <span class="bg-slate-900 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px]">1</span>
+        Detailed Inspection Checklist
+      </h2>
       ${sectionsHtml}
     </div>
 
-    <!-- SIGNATURES -->
-    <div class="mt-12 pt-8 border-t-2 border-slate-100 break-inside-avoid">
-      <div class="grid grid-cols-2 gap-12">
+    <!-- SUMMARY SIGN-OFF -->
+    <div class="mt-16 pt-10 border-t-2 border-slate-100 break-inside-avoid">
+      <h2 class="text-base font-black uppercase border-b-2 border-slate-900 pb-2 mb-8 flex items-center gap-2">
+        <span class="bg-slate-900 text-white w-6 h-6 rounded-full flex items-center justify-center text-[10px]">2</span>
+        Certification & Sign-Off
+      </h2>
+      <div class="grid grid-cols-2 gap-16">
         <div class="text-center">
-          <p class="text-[10px] font-black text-slate-400 uppercase mb-4">Certified By Juruteknik</p>
-          <div class="h-24 flex items-center justify-center border border-dashed border-slate-200 mb-2">
-            ${setupData?.techSigData ? `<img src="${setupData.techSigData}" class="h-full object-contain" />` : '<p class="text-[10px] text-slate-200">No Signature</p>'}
+          <p class="text-[11px] font-black text-slate-400 uppercase mb-6 tracking-widest">Certified By Bestro Technician</p>
+          <div class="h-32 flex items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl mb-4 bg-slate-50">
+            ${setupData?.techSigData ? `<img src="${setupData.techSigData}" class="h-24 object-contain" />` : '<p class="text-[10px] text-slate-300 font-bold uppercase">No Digital Sign</p>'}
           </div>
-          <p class="text-xs font-black uppercase">${tech}</p>
+          <p class="text-sm font-black uppercase text-slate-900">${tech}</p>
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Technician Staff ID: ${setupData?.technicianId || '8821'}</p>
         </div>
         <div class="text-center">
-          <p class="text-[10px] font-black text-slate-400 uppercase mb-4">Verified By Client / Rep</p>
-          <div class="h-24 flex items-center justify-center border border-dashed border-slate-200 mb-2">
-            ${setupData?.clientSigData ? `<img src="${setupData.clientSigData}" class="h-full object-contain" />` : '<p class="text-[10px] text-slate-200">No Signature</p>'}
+          <p class="text-[11px] font-black text-slate-400 uppercase mb-6 tracking-widest">Verified By Client Representative</p>
+          <div class="h-32 flex items-center justify-center border-2 border-dashed border-slate-200 rounded-2xl mb-4 bg-slate-50">
+            ${setupData?.clientSigData ? `<img src="${setupData.clientSigData}" class="h-24 object-contain" />` : '<p class="text-[10px] text-slate-300 font-bold uppercase">No Digital Sign</p>'}
           </div>
-          <p class="text-xs font-black uppercase">Authorized Representative</p>
+          <p class="text-sm font-black uppercase text-slate-900">Authorized Personnel</p>
+          <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Official Site Verification</p>
         </div>
       </div>
     </div>
 
-    <div class="mt-10 text-center opacity-30">
-      <p class="text-[8px] font-black uppercase tracking-[0.5em]">Digitally Generated via Bestro Maintenance OS</p>
+    <div class="mt-20 text-center opacity-40 border-t border-slate-100 pt-6">
+      <p class="text-[10px] font-black uppercase tracking-[0.6em] text-slate-400">Digitally Generated via Bestro Maintenance OS</p>
+      <p class="text-[8px] font-bold text-slate-300 uppercase mt-2 italic">Official Document - Proprietary Engineering Record</p>
     </div>
   </div>
 </body>
@@ -191,7 +200,7 @@ const SubmissionSuccess: React.FC = () => {
         printWindow.onload = () => {
           setTimeout(() => {
             printWindow.print();
-          }, 500);
+          }, 600);
         };
       }
     } else if (type === 'html') {
@@ -201,9 +210,10 @@ const SubmissionSuccess: React.FC = () => {
       a.href = url;
       a.download = `BESTRO_REPORT_${auditId}.html`;
       a.click();
+      URL.revokeObjectURL(url);
     } else if (type === 'whatsapp') {
       const site = setupData?.clientName?.toUpperCase() || 'TAPAK';
-      const message = `*BESTRO ENGINEERING REPORT*%0A---------------------------%0A*ID:* ${auditId}%0A*SITE:* ${site}%0A*DATE:* ${setupData?.date}%0A*TECH:* ${setupData?.techName}%0A---------------------------%0A_Laporan lengkap telah dijana dan sedia untuk disemak._`;
+      const message = `*BESTRO ENGINEERING REPORT*%0A---------------------------%0A*AUDIT ID:* ${auditId}%0A*SITE:* ${site}%0A*DATE:* ${setupData?.date}%0A*TECH:* ${setupData?.techName}%0A---------------------------%0A_Laporan penyelenggaraan teknikal lengkap telah dijana dan tersedia untuk semakan. Sila semak lampiran sistem Bestro OS._`;
       window.open(`https://wa.me/?text=${message}`, '_blank');
     }
   };
