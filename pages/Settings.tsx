@@ -25,7 +25,11 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
     };
   });
 
-  const [notifications, setNotifications] = useState(true);
+  const [notifications, setNotifications] = useState(() => {
+    const saved = localStorage.getItem('app_notifications_enabled');
+    return saved !== null ? JSON.parse(saved) : true;
+  });
+
   const [isSyncing, setIsSyncing] = useState(false);
   const [lastSync, setLastSync] = useState('10 mins ago');
   const [showQR, setShowQR] = useState(false);
@@ -38,6 +42,12 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
   const [confirmPin, setConfirmPin] = useState('');
   
   const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const handleNotificationToggle = () => {
+    const newVal = !notifications;
+    setNotifications(newVal);
+    localStorage.setItem('app_notifications_enabled', JSON.stringify(newVal));
+  };
 
   const handleSync = () => {
     setIsSyncing(true);
@@ -67,20 +77,16 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
       return;
     }
 
-    // 1. Create the updated user object
     const updatedUser = { ...user, pin: editPin };
     
-    // 2. Update all storage layers
     setUser(updatedUser);
     localStorage.setItem('current_user', JSON.stringify(updatedUser));
     localStorage.setItem('last_user', JSON.stringify(updatedUser));
 
-    // 3. Update Security Preferences
     const newPrefs = { ...securityPrefs, securityPin: editPin };
     setSecurityPrefs(newPrefs);
     localStorage.setItem('security_prefs', JSON.stringify(newPrefs));
     
-    // 4. Update the Master Registry (Ensures login works with new PIN)
     const registry = JSON.parse(localStorage.getItem('users_registry') || '[]');
     const userIndex = registry.findIndex((u: any) => 
       String(u.id) === String(updatedUser.id) || 
@@ -91,7 +97,6 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
       registry[userIndex].pin = editPin;
       localStorage.setItem('users_registry', JSON.stringify(registry));
     } else {
-      // If user wasn't in registry (like default mock), add them now
       registry.push(updatedUser);
       localStorage.setItem('users_registry', JSON.stringify(registry));
     }
@@ -168,7 +173,6 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
 
       <div className="flex-1 overflow-y-auto no-scrollbar">
         <div className="p-4 flex flex-col gap-6">
-          {/* Profile Card */}
           <div className="bg-surface-dark p-5 rounded-3xl border border-white/5 flex items-center gap-4 shadow-2xl relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
             
@@ -207,7 +211,6 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
             </button>
           </div>
 
-          {/* Account Section */}
           <section>
             <h3 className="px-4 text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-2 italic">Security Hub</h3>
             <div className="bg-surface-dark rounded-3xl border border-white/5 divide-y divide-white/5 overflow-hidden shadow-xl">
@@ -250,7 +253,6 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
             </div>
           </section>
 
-          {/* App Preferences */}
           <section>
             <h3 className="px-4 text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-2 italic">App Configuration</h3>
             <div className="bg-surface-dark rounded-3xl border border-white/5 divide-y divide-white/5 overflow-hidden shadow-xl">
@@ -259,14 +261,14 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
                   <div className="w-9 h-9 rounded-xl bg-background-dark flex items-center justify-center text-amber-500">
                     <span className="material-symbols-outlined text-[20px]">notifications</span>
                   </div>
-                  <span className="text-xs font-bold uppercase tracking-tight">Notifications</span>
+                  <span className="text-xs font-bold uppercase tracking-tight">Push Notifications</span>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input 
                     type="checkbox" 
                     className="sr-only peer" 
                     checked={notifications} 
-                    onChange={() => setNotifications(!notifications)}
+                    onChange={handleNotificationToggle}
                   />
                   <div className="w-10 h-5 bg-background-dark peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
                 </label>
@@ -291,7 +293,6 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
             </div>
           </section>
 
-          {/* System Control */}
           <section>
             <h3 className="px-4 text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2 italic">System Control</h3>
             <div className="bg-surface-dark rounded-3xl border border-white/5 divide-y divide-white/5 overflow-hidden shadow-xl">
@@ -329,7 +330,6 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
         </div>
       </div>
 
-      {/* Security Hub Modal */}
       {showSecurity && (
         <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-end justify-center animate-in slide-in-from-bottom duration-300">
            <div className="bg-surface-dark w-full max-w-md rounded-t-[40px] border-t border-white/10 p-8 flex flex-col gap-6 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar">
@@ -344,7 +344,6 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
               </div>
               
               <div className="flex flex-col gap-6">
-                 {/* Biometric Toggle */}
                  <div className="bg-background-dark/30 p-5 rounded-3xl border border-white/5 flex items-center justify-between transition-all active:scale-[0.98]">
                     <div className="flex items-center gap-4">
                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${securityPrefs.biometrics ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white/5 text-text-muted'}`}>
@@ -366,9 +365,7 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
                     </label>
                  </div>
 
-                 {/* PIN Replacement Section */}
                  <div className="flex flex-col gap-4">
-                    {/* New PIN Input */}
                     <div className="bg-background-dark/30 p-5 rounded-3xl border border-white/5 flex flex-col gap-3">
                        <div className="flex items-center gap-3">
                           <span className="material-symbols-outlined text-primary text-lg">lock</span>
@@ -396,7 +393,6 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
                        </div>
                     </div>
 
-                    {/* Confirm PIN Input */}
                     <div className={`bg-background-dark/30 p-5 rounded-3xl border transition-all ${editPin.length === 4 ? 'opacity-100' : 'opacity-40 grayscale'}`}>
                        <div className="flex items-center gap-3 mb-3">
                           <span className="material-symbols-outlined text-primary text-lg">verified_user</span>
@@ -445,7 +441,6 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
         </div>
       )}
 
-      {/* QR Modal & Edit Modal */}
       {showQR && (
         <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-6 animate-in fade-in duration-300">
           <div className="bg-surface-dark w-full max-w-xs p-8 rounded-[40px] border border-white/10 flex flex-col items-center gap-6 shadow-2xl">

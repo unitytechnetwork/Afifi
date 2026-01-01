@@ -72,6 +72,8 @@ const Checklist: React.FC = () => {
     return statuses;
   }, [currentId, refresh]);
 
+  const hasAnyFaults = useMemo(() => Object.values(systemStatusMap).some(s => s === 'FAULT'), [systemStatusMap]);
+
   const toggleNA = (e: React.MouseEvent, cat: SystemCategory) => {
     e.stopPropagation();
     const dataStr = localStorage.getItem(cat.storageKey);
@@ -140,6 +142,25 @@ const Checklist: React.FC = () => {
             {completedCount} of {categories.length} Systems Handled
           </p>
         </div>
+
+        {/* Defect Quick Access */}
+        {hasAnyFaults && (
+           <button 
+             onClick={() => navigate(`/defect-report/${currentId}`)}
+             className="bg-primary/10 border border-primary/20 p-4 rounded-2xl flex items-center justify-between group active:scale-95 transition-all shadow-xl"
+           >
+              <div className="flex items-center gap-4">
+                 <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg shadow-primary/20">
+                    <span className="material-symbols-outlined text-xl">report_problem</span>
+                 </div>
+                 <div className="flex flex-col items-start">
+                    <span className="text-[11px] font-black uppercase text-primary italic">View Deficiency List</span>
+                    <span className="text-[7px] font-black uppercase text-text-muted tracking-widest mt-0.5">Auto-generated Fault Summary</span>
+                 </div>
+              </div>
+              <span className="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform">chevron_right</span>
+           </button>
+        )}
 
         {/* System Grid */}
         <div className="grid grid-cols-1 gap-3">

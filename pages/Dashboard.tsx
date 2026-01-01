@@ -5,6 +5,7 @@ import TopBar from '../components/TopBar';
 import BottomNav from '../components/BottomNav';
 import { MOCK_USER, USERS_LIST } from '../constants';
 import { InspectionStatus, User, Inspection } from '../types';
+import { sendLocalNotification } from '../components/NotificationManager';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -12,7 +13,6 @@ const Dashboard: React.FC = () => {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
-  // Reactive User State
   const [currentUser, setCurrentUser] = useState<User>(() => {
     const saved = localStorage.getItem('current_user');
     try {
@@ -24,10 +24,10 @@ const Dashboard: React.FC = () => {
 
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [localAudits, setLocalAudits] = useState<Inspection[]>([]);
+  const [totalOpenDefects, setTotalOpenDefects] = useState(0);
 
   const isSupervisor = currentUser?.role === 'Supervisor' || currentUser?.role === 'Admin';
 
-  // Load Users
   useEffect(() => {
     const registry = JSON.parse(localStorage.getItem('users_registry') || '[]');
     const combined = [...registry, ...USERS_LIST];
@@ -35,11 +35,11 @@ const Dashboard: React.FC = () => {
     setAllUsers(unique);
   }, [refreshTrigger]);
 
-  // Load Audits Logic
   useEffect(() => {
     const loadAudits = () => {
       const audits: Inspection[] = [];
       const keys = Object.keys(localStorage);
+      let defectCount = 0;
       
       keys.forEach(key => {
         if (key.startsWith('setup_AUDIT-')) {
@@ -52,7 +52,14 @@ const Dashboard: React.FC = () => {
 
             const auditId = key.replace('setup_', '');
             
-            // Calculate progress
+            // Check for defects in this specific audit to update counter
+            const trackerKey = `defect_registry_${auditId}`;
+            const trackerRaw = localStorage.getItem(trackerKey);
+            if (trackerRaw) {
+              const tracker = JSON.parse(trackerRaw);
+              defectCount += Object.values(tracker).filter((d: any) => d.status !== 'Rectified').length;
+            }
+
             const checklistKey = `checklist_${auditId}`;
             const checklistData = localStorage.getItem(checklistKey);
             let itemsCompleted = 0;
@@ -80,19 +87,37 @@ const Dashboard: React.FC = () => {
         }
       });
 
-      // Filter based on role
       const filtered = audits.filter(a => {
         if (isSupervisor) return true;
         return String(a.technicianId) === String(currentUser?.id);
       });
 
       setLocalAudits(filtered.sort((a, b) => b.id.localeCompare(a.id)));
+      setTotalOpenDefects(defectCount);
     };
 
     loadAudits();
   }, [currentUser, isSupervisor, refreshTrigger]);
 
-  // Form State
+  // Overdue Reminders Logic
+  useEffect(() => {
+    if (localAudits.length > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const overdue = localAudits.filter(a => a.status === InspectionStatus.DRAFT && a.date < today);
+      
+      const hasAlertedKey = `alert_overdue_${today}`;
+      const alreadyAlerted = sessionStorage.getItem(hasAlertedKey);
+
+      if (overdue.length > 0 && !alreadyAlerted) {
+        sendLocalNotification(
+          "Task Overdue Reminder",
+          `Alert: You have ${overdue.length} pending maintenance reports past their scheduled date. Please prioritize completion.`
+        );
+        sessionStorage.setItem(hasAlertedKey, 'true');
+      }
+    }
+  }, [localAudits]);
+
   const [assignForm, setAssignForm] = useState({
     clientName: '',
     location: '',
@@ -122,7 +147,6 @@ const Dashboard: React.FC = () => {
   };
 
   const handleNewReport = () => {
-    // Generate unique ID and go to setup
     const newId = `AUDIT-${Date.now()}`;
     navigate(`/inspection-cover/${newId}`);
   };
@@ -149,16 +173,9 @@ const Dashboard: React.FC = () => {
 
     try {
       localStorage.setItem(`setup_${newAuditId}`, JSON.stringify(setupData));
-      
-      // Reset Modal & Form
       setShowAssignModal(false);
       setAssignForm({ clientName: '', location: '', techId: '', date: new Date().toISOString().split('T')[0] });
-      
-      // Update UI Reactively
       setRefreshTrigger(prev => prev + 1);
-      
-      // Feedback
-      console.log("Job Dispatched Successfully:", newAuditId);
     } catch (err) {
       alert("System Error: Storage capacity reached.");
     }
@@ -196,6 +213,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
+        {/* Core Stats Row */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-surface-dark p-4 rounded-2xl border border-white/5 flex flex-col gap-1 shadow-xl">
             <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">{isSupervisor ? 'Team Tasks' : 'My Queue'}</span>
@@ -215,6 +233,24 @@ const Dashboard: React.FC = () => {
               <span className="material-symbols-outlined text-emerald-500">verified</span>
             </div>
           </div>
+        </div>
+
+        {/* Standalone Defect Report Module */}
+        <div 
+          onClick={() => navigate('/inspections')}
+          className="bg-primary/5 p-6 rounded-3xl border border-primary/20 flex items-center justify-between shadow-2xl active:scale-[0.98] transition-all cursor-pointer overflow-hidden relative group"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/10 transition-all" />
+          <div className="flex items-center gap-5 relative z-10">
+            <div className="w-14 h-14 bg-primary rounded-2xl flex items-center justify-center shadow-lg shadow-primary/30">
+               <span className="material-symbols-outlined text-white text-3xl">warning</span>
+            </div>
+            <div className="flex flex-col">
+              <h2 className="text-lg font-black italic uppercase text-white tracking-tight">Defect Report</h2>
+              <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em]">{totalOpenDefects} Active Deficiency Records</p>
+            </div>
+          </div>
+          <span className="material-symbols-outlined text-primary group-hover:translate-x-2 transition-transform relative z-10">chevron_right</span>
         </div>
 
         <div className="flex flex-col gap-4">
@@ -275,7 +311,6 @@ const Dashboard: React.FC = () => {
         <span className="text-[7px] font-black uppercase tracking-widest">{isSupervisor ? 'Dispatch' : 'New'}</span>
       </button>
 
-      {/* Reactive Assignment Modal */}
       {showAssignModal && (
         <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-end justify-center animate-in slide-in-from-bottom duration-300">
           <div className="bg-surface-dark w-full max-w-md rounded-t-[40px] border-t border-white/10 p-8 flex flex-col gap-6 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar">

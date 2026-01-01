@@ -18,6 +18,8 @@ import PumpSystem from './pages/PumpSystem';
 import EquipmentSystem from './pages/EquipmentSystem';
 import FireExtinguisher from './pages/FireExtinguisher';
 import LightingSystem from './pages/LightingSystem';
+import DefectReport from './pages/DefectReport';
+import NotificationManager from './components/NotificationManager';
 
 const App: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -29,6 +31,7 @@ const App: React.FC = () => {
   return (
     <Router>
       <div className="app-container max-w-md mx-auto h-screen relative bg-background-dark shadow-2xl overflow-hidden flex flex-col font-sans text-white">
+        <NotificationManager />
         <Routes>
           <Route path="/login" element={!isAuthenticated ? <Login onLogin={() => setIsAuthenticated(true)} /> : <Navigate to="/" />} />
           <Route path="/register" element={<Register />} />
@@ -50,7 +53,6 @@ const App: React.FC = () => {
             element={isAuthenticated ? <Checklist /> : <Navigate to="/login" />} 
           />
           
-          {/* Specific Systems Routes */}
           <Route path="/checklist/:id/panel" element={isAuthenticated ? <PanelDetail /> : <Navigate to="/login" />} />
           <Route path="/checklist/:id/gas" element={isAuthenticated ? <GasSuppression /> : <Navigate to="/login" />} />
           <Route path="/checklist/:id/pump/:type" element={isAuthenticated ? <PumpSystem /> : <Navigate to="/login" />} />
@@ -60,6 +62,7 @@ const App: React.FC = () => {
 
           <Route path="/photos/:id" element={isAuthenticated ? <PhotoService /> : <Navigate to="/login" />} />
           <Route path="/summary/:id" element={isAuthenticated ? <Summary /> : <Navigate to="/login" />} />
+          <Route path="/defect-report/:id" element={isAuthenticated ? <DefectReport /> : <Navigate to="/login" />} />
           <Route path="/success" element={isAuthenticated ? <SubmissionSuccess /> : <Navigate to="/login" />} />
           <Route path="/settings" element={isAuthenticated ? <Settings onLogout={handleLogout} /> : <Navigate to="/login" />} />
           <Route path="/admin/users" element={isAuthenticated ? <UserManagement /> : <Navigate to="/login" />} />

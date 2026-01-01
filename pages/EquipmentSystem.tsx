@@ -6,452 +6,336 @@ import TopBar from '../components/TopBar';
 interface EquipmentItem {
   id: string;
   location: string;
-  // Hose Reel Specifics
-  hoseStatus: 'Normal' | 'Fault';
-  nozzleStatus: 'Normal' | 'Fault';
-  valveStatus: 'Normal' | 'Fault';
-  drumStatus: 'Normal' | 'Fault';
-  // Hydrant Specifics
-  pillarStatus: 'Normal' | 'Fault';
-  canvasStatus: 'Normal' | 'Fault';
-  landingValveStatus: 'Normal' | 'Fault';
-  oringStatus: 'Normal' | 'Fault';
-  capChainStatus: 'Normal' | 'Fault';
-  // Wet Riser & Dry Riser Specifics
-  breechingInletStatus: 'Normal' | 'Fault';
-  drainValveStatus: 'Normal' | 'Fault';
-  cabinetStatus: 'Normal' | 'Fault';
-  airReleaseValveStatus: 'Normal' | 'Fault'; // Specifically for Dry Riser
-  // Shared
-  pressureStatus: 'Normal' | 'Low';
-  // General fallback
-  condition: 'Good' | 'Damaged';
-  remarks?: string;
-  photo?: string;
+  hoseStatus: string;
+  nozzleStatus: string;
+  valveStatus: string;
+  drumStatus: string;
+  pillarStatus: string;
+  canvasStatus: string;
+  landingValveStatus: string;
+  oringStatus: string;
+  capChainStatus: string;
+  breechingInletStatus: string;
+  drainValveStatus: string;
+  cabinetStatus: string;
+  airReleaseValveStatus: string;
+  pressureStatus: string;
+  labelStatus: string;
+  mountingStatus: string;
+  condition: string;
+  remarks?: Record<string, string>;
+  photos: Record<string, string>;
 }
 
 interface EquipmentLog {
+  systemDescription: string;
+  systemOverallStatus: 'Normal' | 'Faulty' | 'Partial' | 'N/A';
   items: EquipmentItem[];
   overallRemarks: string;
-  photos: string[]; // Up to 4 photos for the entire system
+  servicePhotos: string[];
 }
 
 const EquipmentSystem: React.FC = () => {
   const { id, type } = useParams();
   const navigate = useNavigate();
   const auditId = id || 'NEW-AUDIT';
-  const equipType = type || 'hosereel';
-  const isHoseReel = equipType.toLowerCase().includes('hosereel');
-  const isHydrant = equipType.toLowerCase().includes('hydrant');
-  const isWetRiser = equipType.toLowerCase().includes('wetriser');
-  const isDryRiser = equipType.toLowerCase().includes('dryriser');
-
+  const equipType = type?.toLowerCase() || 'hosereel';
+  
   const [log, setLog] = useState<EquipmentLog>(() => {
     const saved = localStorage.getItem(`equip_${equipType}_${auditId}`);
+    const defaultState: EquipmentLog = { 
+      systemDescription: `Assessment for ${equipType.toUpperCase()} safety components.`,
+      systemOverallStatus: 'Normal',
+      items: [], 
+      overallRemarks: '', 
+      servicePhotos: ['', '', '', ''] 
+    };
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return {
-            items: parsed,
-            overallRemarks: '',
-            photos: ['', '', '', '']
-          };
-        }
-        return {
+        return { 
+          ...defaultState, 
           ...parsed,
-          photos: parsed.photos || ['', '', '', '']
+          items: (parsed.items || []).map((item: any) => ({
+            ...item,
+            photos: item.photos || {},
+            remarks: item.remarks || {}
+          }))
         };
-      } catch (e) {
-        console.error("Parse error", e);
-      }
+      } catch (e) { console.error(e); }
     }
-    return {
-      items: [],
-      overallRemarks: '',
-      photos: ['', '', '', '']
-    };
+    return defaultState;
   });
 
   useEffect(() => {
     localStorage.setItem(`equip_${equipType}_${auditId}`, JSON.stringify(log));
   }, [log, auditId, equipType]);
 
-  const createNewItem = (): EquipmentItem => ({
-    id: Date.now().toString(),
-    location: '',
-    hoseStatus: 'Normal',
-    nozzleStatus: 'Normal',
-    valveStatus: 'Normal',
-    drumStatus: 'Normal',
-    pillarStatus: 'Normal',
-    canvasStatus: 'Normal',
-    landingValveStatus: 'Normal',
-    oringStatus: 'Normal',
-    capChainStatus: 'Normal',
-    breechingInletStatus: 'Normal',
-    drainValveStatus: 'Normal',
-    cabinetStatus: 'Normal',
-    airReleaseValveStatus: 'Normal',
-    pressureStatus: 'Normal',
-    condition: 'Good',
-    remarks: ''
-  });
+  const updateItem = (itemId: string, updates: Partial<EquipmentItem>) => {
+    setLog(prev => ({ ...prev, items: prev.items.map(i => i.id === itemId ? { ...i, ...updates } : i) }));
+  };
 
   const addItem = () => {
-    setLog(prev => ({ ...prev, items: [...prev.items, createNewItem()] }));
+    const newItem: EquipmentItem = { 
+      id: Date.now().toString(), 
+      location: '', 
+      hoseStatus: 'Normal', 
+      nozzleStatus: 'Normal', 
+      valveStatus: 'Normal', 
+      drumStatus: 'Normal', 
+      pillarStatus: 'Normal', 
+      canvasStatus: 'Normal', 
+      landingValveStatus: 'Normal', 
+      oringStatus: 'Normal', 
+      capChainStatus: 'Normal', 
+      breechingInletStatus: 'Normal', 
+      drainValveStatus: 'Normal', 
+      cabinetStatus: 'Normal', 
+      airReleaseValveStatus: 'Normal', 
+      pressureStatus: 'Normal', 
+      labelStatus: 'Intact',
+      mountingStatus: 'Secure',
+      condition: 'Good', 
+      remarks: {},
+      photos: {}
+    };
+    setLog(prev => ({ ...prev, items: [...prev.items, newItem] }));
   };
 
-  const updateItem = (itemId: string, updates: Partial<EquipmentItem>) => {
-    setLog(prev => ({
-      ...prev,
-      items: prev.items.map(i => i.id === itemId ? { ...i, ...updates } : i)
-    }));
-  };
-
-  const deleteItem = (itemId: string) => {
-    setLog(prev => ({
-      ...prev,
-      items: prev.items.filter(i => i.id !== itemId)
-    }));
-  };
-
-  const handlePhotosChange = (newPhotos: string[]) => {
-    setLog(prev => ({ ...prev, photos: newPhotos }));
+  const getTogglesForType = (item: EquipmentItem) => {
+    if (equipType.includes('hosereel')) {
+      return [
+        { label: 'Hose Condition', key: 'hoseStatus', val: item.hoseStatus, opt: ['Normal', 'Fault'] },
+        { label: 'Nozzle / Jet', key: 'nozzleStatus', val: item.nozzleStatus, opt: ['Normal', 'Fault'] },
+        { label: 'Drum / Swing', key: 'drumStatus', val: item.drumStatus, opt: ['Normal', 'Fault'] },
+        { label: 'Control Valve', key: 'valveStatus', val: item.valveStatus, opt: ['Normal', 'Fault'] },
+        { label: 'O-Ring Seal', key: 'oringStatus', val: item.oringStatus, opt: ['Normal', 'Fault'] },
+        { label: 'Cabinet Box', key: 'cabinetStatus', val: item.cabinetStatus, opt: ['Normal', 'Fault'] },
+        { label: 'Water Pressure', key: 'pressureStatus', val: item.pressureStatus, opt: ['Normal', 'Low'] },
+        { label: 'Instruction Label', key: 'labelStatus', val: item.labelStatus, opt: ['Intact', 'Missing'] },
+        { label: 'Wall Mounting', key: 'mountingStatus', val: item.mountingStatus, opt: ['Secure', 'Loose'] },
+      ];
+    } else if (equipType.includes('hydrant')) {
+      return [
+        { label: 'Pillar Status', key: 'pillarStatus', val: item.pillarStatus, opt: ['Normal', 'Fault'] },
+        { label: 'Isolation Valve', key: 'valveStatus', val: item.valveStatus, opt: ['Normal', 'Fault'] },
+        { label: 'Cap & Chain', key: 'capChainStatus', val: item.capChainStatus, opt: ['Normal', 'Fault'] },
+        { label: 'Canvas Hose', key: 'canvasStatus', val: item.canvasStatus, opt: ['Normal', 'Fault'] },
+        { label: 'Nozzle / Jet', key: 'nozzleStatus', val: item.nozzleStatus, opt: ['Normal', 'Fault'] },
+        { label: 'Landing Valve', key: 'landingValveStatus', val: item.landingValveStatus, opt: ['Normal', 'Fault'] },
+        { label: 'Static Pressure', key: 'pressureStatus', val: item.pressureStatus, opt: ['Normal', 'Low'] },
+        { label: 'Cabinet Box', key: 'cabinetStatus', val: item.cabinetStatus, opt: ['Normal', 'Fault'] },
+      ];
+    } else if (equipType.includes('riser')) {
+      const base = [
+        { label: 'Landing Valve', key: 'landingValveStatus', val: item.landingValveStatus, opt: ['Normal', 'Fault'] },
+        { label: 'Canvas Hose', key: 'canvasStatus', val: item.canvasStatus, opt: ['Normal', 'Fault'] },
+        { label: 'Nozzle / Jet', key: 'nozzleStatus', val: item.nozzleStatus, opt: ['Normal', 'Fault'] },
+        { label: 'Water Pressure', key: 'pressureStatus', val: item.pressureStatus, opt: ['Normal', 'Low'] },
+        { label: 'Cabinet Box', key: 'cabinetStatus', val: item.cabinetStatus, opt: ['Normal', 'Fault'] },
+      ];
+      if (equipType.includes('dry')) {
+        base.push(
+          { label: 'Breeching Inlet', key: 'breechingInletStatus', val: item.breechingInletStatus, opt: ['Normal', 'Fault'] },
+          { label: 'Drain Valve', key: 'drainValveStatus', val: item.drainValveStatus, opt: ['Normal', 'Fault'] },
+          { label: 'Air Release Valve', key: 'airReleaseValveStatus', val: item.airReleaseValveStatus, opt: ['Normal', 'Fault'] }
+        );
+      }
+      return base;
+    }
+    return [
+      { label: 'Condition', key: 'condition', val: item.condition, opt: ['Good', 'Damaged'] },
+    ];
   };
 
   return (
     <div className="flex flex-col h-full bg-background-dark overflow-y-auto no-scrollbar pb-32">
-      <TopBar title={`${equipType.toUpperCase()} ASSETS`} subtitle={`AUDIT #${auditId}`} showBack />
+      <TopBar title={`${equipType.toUpperCase()} ASSETS`} subtitle={`REF: ${auditId}`} showBack />
+      <div className="p-4 flex flex-col gap-6 animate-in fade-in duration-500">
+        
+        {/* RESTYLED: System Audit Profile (Matches others) */}
+        <section className="bg-primary/10 border border-primary/20 p-5 rounded-2xl flex flex-col gap-4 shadow-lg shadow-primary/5">
+           <div className="flex justify-between items-center border-b border-primary/20 pb-3">
+              <h3 className="text-[11px] font-black uppercase text-white tracking-widest italic">System Audit Profile</h3>
+              <select value={log.systemOverallStatus} onChange={(e) => setLog({...log, systemOverallStatus: e.target.value as any})} className="bg-background-dark/50 border border-primary/40 rounded px-2 h-6 text-[8px] font-black uppercase text-white">
+                <option value="Normal">Normal</option><option value="Faulty">Faulty</option><option value="Partial">Partial</option><option value="N/A">N/A</option>
+              </select>
+           </div>
+           <textarea value={log.systemDescription} onChange={(e) => setLog({...log, systemDescription: e.target.value})} className="bg-background-dark/50 border-white/5 border rounded-xl p-3 text-xs font-medium h-16 text-white placeholder:text-white/10" placeholder="Description..." />
+        </section>
 
-      <div className="p-4 flex flex-col gap-6">
         <div className="flex justify-between items-center px-1">
            <div className="flex flex-col">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-text-muted italic">Asset Inventory</h3>
-              <span className="text-[7px] font-black text-primary uppercase tracking-[0.2em]">{log.items.length} Units Registered</span>
+              <span className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em] italic">Registry Log</span>
+              <span className="text-[7px] font-black text-primary uppercase tracking-[0.3em]">{log.items.length} Assets Found</span>
            </div>
-           <button onClick={addItem} className="text-[9px] font-black text-primary bg-primary/10 px-4 py-2 rounded-xl uppercase tracking-widest border border-primary/20 active:scale-95 transition-all shadow-lg shadow-primary/5">+ Add Unit</button>
+           <button onClick={addItem} className="text-[9px] font-black text-primary bg-primary/10 px-4 py-2 rounded-xl border border-primary/20 transition-all hover:bg-primary hover:text-white">+ Add Asset</button>
         </div>
 
-        <div className="flex flex-col gap-4">
-          {log.items.map((item, index) => (
-            <AssetUnitCard 
-                key={item.id}
-                index={index}
-                item={item}
-                isHoseReel={isHoseReel}
-                isHydrant={isHydrant}
-                isWetRiser={isWetRiser}
-                isDryRiser={isDryRiser}
-                onUpdate={(upd) => updateItem(item.id, upd)}
-                onDelete={() => deleteItem(item.id)}
-            />
-          ))}
+        <div className="flex flex-col gap-5">
+          {log.items.map((item, index) => {
+            const toggles = getTogglesForType(item);
+
+            return (
+              <div key={item.id} className="p-6 rounded-[2.5rem] bg-surface-dark border border-white/5 shadow-2xl relative overflow-hidden group transition-all animate-in slide-in-from-bottom">
+                <div className="absolute top-0 left-0 w-1.5 h-full bg-primary/20" />
+                <button onClick={() => setLog(prev => ({...prev, items: prev.items.filter(i => i.id !== item.id)}))} className="absolute top-6 right-6 text-text-muted hover:text-primary transition-colors"><span className="material-symbols-outlined text-sm">delete</span></button>
+                
+                <div className="flex items-center gap-2 border-b border-white/5 pb-4 mb-5">
+                  <span className="text-[11px] font-black italic uppercase text-primary">Unit #{index + 1}</span>
+                  <input type="text" value={item.location} onChange={(e) => updateItem(item.id, { location: e.target.value })} className="flex-1 bg-transparent border-none text-[11px] font-bold text-white focus:ring-0 placeholder:text-white/5" placeholder="Building Location..." />
+                </div>
+                
+                <div className="flex flex-col gap-4">
+                  {toggles.map((t) => (
+                    <AssetRow 
+                      key={t.key}
+                      label={t.label} 
+                      value={t.val} 
+                      options={t.opt}
+                      remark={item.remarks?.[t.key]}
+                      photo={item.photos?.[t.key]}
+                      onToggle={(v: any) => updateItem(item.id, { [t.key]: v })}
+                      onRemark={(txt: string) => {
+                        const newRemarks = { ...(item.remarks || {}), [t.key]: txt };
+                        updateItem(item.id, { remarks: newRemarks });
+                      }}
+                      onPhoto={(p: string) => {
+                        const newPhotos = { ...(item.photos || {}), [t.key]: p };
+                        updateItem(item.id, { photos: newPhotos });
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {log.items.length === 0 && (
-          <div className="py-24 flex flex-col items-center justify-center opacity-20 text-center">
-             <span className="material-symbols-outlined text-6xl mb-4">inventory_2</span>
-             <p className="text-[10px] font-black uppercase tracking-[0.4em] max-w-[200px]">No equipment records found in local registry.</p>
-             <button onClick={addItem} className="mt-6 px-6 py-2 border border-white/20 rounded-full text-[8px] font-black uppercase tracking-widest">Start New Log</button>
-          </div>
-        )}
+        <button onClick={addItem} className="w-full py-10 border-2 border-dashed border-white/5 rounded-[3rem] flex flex-col items-center justify-center gap-2 text-text-muted hover:text-primary hover:border-primary/20 transition-all active:scale-[0.98]">
+          <span className="material-symbols-outlined text-4xl">add_circle</span>
+          <span className="text-[10px] font-black uppercase tracking-[0.4em]">Register {equipType.toUpperCase()} Unit</span>
+        </button>
 
-        {log.items.length > 0 && (
-          <div className="flex flex-col gap-6 animate-in fade-in duration-700">
-            <section className="bg-surface-dark p-5 rounded-3xl border border-white/5 shadow-xl">
-               <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
-                  <span className="material-symbols-outlined text-primary text-sm">photo_camera</span>
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-text-muted italic">System Visual Proof (Max 4)</h3>
-               </div>
-               <PhotoUploader photos={log.photos} onPhotosChange={handlePhotosChange} />
-            </section>
+        <section className="bg-surface-dark p-6 rounded-[2.5rem] border border-white/5 shadow-xl mt-4">
+           <div className="flex items-center gap-2 mb-5 border-b border-white/5 pb-4">
+              <span className="material-symbols-outlined text-primary text-sm">history_edu</span>
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-text-muted italic">Final Verification & Remarks</h3>
+           </div>
+           
+           <textarea 
+             value={log.overallRemarks} 
+             onChange={(e) => setLog({...log, overallRemarks: e.target.value})} 
+             className="w-full bg-background-dark/40 border-none rounded-2xl p-4 text-[11px] font-medium text-white h-24 mb-6 focus:ring-1 focus:ring-primary" 
+             placeholder="Summary findings for this system..." 
+           />
 
-            <section className="bg-surface-dark p-5 rounded-3xl border border-white/5 shadow-xl">
-               <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3">
-                  <span className="material-symbols-outlined text-primary text-sm">edit_note</span>
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-text-muted italic">Overall Technical Observation</h3>
-               </div>
-               <textarea 
-                  value={log.overallRemarks}
-                  onChange={(e) => setLog(prev => ({ ...prev, overallRemarks: e.target.value }))}
-                  placeholder="Record overall system findings, maintenance work carried out, or general site conditions..."
-                  className="w-full bg-background-dark/50 border-none rounded-2xl text-[10px] p-4 h-32 text-white font-bold placeholder:opacity-20 focus:ring-1 focus:ring-primary"
-               />
-            </section>
-          </div>
-        )}
+           <div className="grid grid-cols-4 gap-3">
+              {log.servicePhotos.map((photo, idx) => (
+                <div key={idx} className="flex flex-col gap-1.5">
+                   <PhotoCaptureBox 
+                     photo={photo} 
+                     onCapture={(p) => {
+                        const newPhotos = [...log.servicePhotos];
+                        newPhotos[idx] = p;
+                        setLog({...log, servicePhotos: newPhotos});
+                     }} 
+                   />
+                   <span className="text-[6px] font-black text-text-muted uppercase text-center">Proof {idx+1}</span>
+                </div>
+              ))}
+           </div>
+        </section>
       </div>
 
-      <div className="fixed bottom-0 w-full max-w-md bg-surface-dark/95 backdrop-blur-xl border-t border-white/5 p-5 pb-10 z-50">
-         <button onClick={() => navigate(`/checklist/${auditId}`)} className="w-full h-14 bg-primary text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-2xl active:scale-95 flex items-center justify-center gap-3">
-            <span>Commit Asset Log</span>
-            <span className="material-symbols-outlined text-sm">verified_user</span>
-         </button>
+      <div className="fixed bottom-0 w-full max-w-md bg-background-dark/95 backdrop-blur-md border-t border-white/5 p-6 pb-12 z-50">
+        <button onClick={() => navigate(`/checklist/${auditId}`)} className="w-full h-14 bg-primary text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-2xl active:scale-[0.98] flex items-center justify-center gap-3">
+          <span>Commit Registry</span>
+          <span className="material-symbols-outlined text-sm">verified_user</span>
+        </button>
       </div>
     </div>
   );
 };
 
-interface AssetCardProps {
-  index: number;
-  item: EquipmentItem;
-  isHoseReel: boolean;
-  isHydrant: boolean;
-  isWetRiser: boolean;
-  isDryRiser: boolean;
-  onUpdate: (upd: Partial<EquipmentItem>) => void;
-  onDelete: () => void;
-}
-
-const AssetUnitCard: React.FC<AssetCardProps> = ({ index, item, isHoseReel, isHydrant, isWetRiser, isDryRiser, onUpdate, onDelete }) => {
-  const fileRef = useRef<HTMLInputElement>(null);
+const AssetRow: React.FC<any> = ({ label, value, options, onToggle, remark, photo, onRemark, onPhoto }) => {
+  const isOk = ['Normal', 'Good', 'Intact', 'Secure', 'Functional'].includes(value);
   
-  let hasFault = false;
-  if (isHoseReel) {
-    hasFault = (item.hoseStatus === 'Fault' || item.nozzleStatus === 'Fault' || item.valveStatus === 'Fault' || item.drumStatus === 'Fault' || item.pressureStatus === 'Low');
-  } else if (isHydrant) {
-    hasFault = (item.pillarStatus === 'Fault' || item.canvasStatus === 'Fault' || item.nozzleStatus === 'Fault' || item.landingValveStatus === 'Fault' || item.oringStatus === 'Fault' || item.capChainStatus === 'Fault' || item.pressureStatus === 'Low' || item.cabinetStatus === 'Fault');
-  } else if (isWetRiser) {
-    hasFault = (item.landingValveStatus === 'Fault' || item.breechingInletStatus === 'Fault' || item.drainValveStatus === 'Fault' || item.cabinetStatus === 'Fault' || item.pressureStatus === 'Low' || item.nozzleStatus === 'Fault' || item.hoseStatus === 'Fault' || item.capChainStatus === 'Fault' || item.oringStatus === 'Fault');
-  } else if (isDryRiser) {
-    hasFault = (item.breechingInletStatus === 'Fault' || item.landingValveStatus === 'Fault' || item.drainValveStatus === 'Fault' || item.airReleaseValveStatus === 'Fault' || item.cabinetStatus === 'Fault' || item.capChainStatus === 'Fault' || item.oringStatus === 'Fault' || item.nozzleStatus === 'Fault');
-  } else {
-    hasFault = (item.condition === 'Damaged');
-  }
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-black uppercase text-white tracking-widest italic">{label}</span>
+        <div className="flex gap-1.5">
+          {options.map((opt: string) => {
+            const isFaultOpt = ['Fault', 'Low', 'Damaged', 'Missing', 'Loose'].includes(opt);
+            const isPositiveOpt = ['Normal', 'Good', 'Intact', 'Secure', 'Functional'].includes(opt);
+            
+            let btnClass = "";
+            if (value === opt) {
+              if (isPositiveOpt) {
+                btnClass = "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20";
+              } else if (isFaultOpt) {
+                btnClass = "bg-primary text-white shadow-lg shadow-primary/20";
+              } else {
+                btnClass = "bg-background-dark text-white";
+              }
+            } else {
+              btnClass = "bg-background-dark/50 text-text-muted opacity-40";
+            }
 
+            return (
+              <button 
+                key={opt}
+                onClick={() => onToggle(opt)}
+                className={`px-4 h-8 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${btnClass}`}
+              >
+                {opt}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      
+      {!isOk && (
+        <div className="bg-background-dark/40 rounded-2xl p-3 flex gap-3 animate-in slide-in-from-top duration-300">
+           <PhotoCaptureBox 
+             photo={photo} 
+             onCapture={onPhoto} 
+             className="w-16 h-16 shrink-0" 
+           />
+           <textarea 
+             value={remark || ''} 
+             onChange={(e) => onRemark(e.target.value)} 
+             className="flex-1 bg-transparent border-none text-[10px] h-16 p-0 font-bold text-white italic placeholder:text-white/10 focus:ring-0" 
+             placeholder={`Describe ${label.toLowerCase()} fault...`} 
+           />
+        </div>
+      )}
+    </div>
+  );
+};
+
+const PhotoCaptureBox: React.FC<{ photo?: string; onCapture: (p: string) => void; className?: string }> = ({ photo, onCapture, className }) => {
+  const fileRef = useRef<HTMLInputElement>(null);
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => onUpdate({ photo: reader.result as string });
+      reader.onloadend = () => onCapture(reader.result as string);
       reader.readAsDataURL(file);
     }
   };
-
   return (
-    <div className={`p-5 rounded-3xl border transition-all animate-in slide-in-from-bottom duration-300 relative group ${hasFault ? 'bg-primary/5 border-primary/20 shadow-2xl' : 'bg-surface-dark border-white/5 shadow-xl'}`}>
-       <button onClick={onDelete} className="absolute top-5 right-5 text-text-muted opacity-0 group-hover:opacity-100 transition-opacity hover:text-primary"><span className="material-symbols-outlined text-sm">delete</span></button>
-       
-       <div className="flex flex-col gap-5">
-          <div className="flex items-center gap-2 border-b border-white/5 pb-3">
-             <span className="text-[11px] font-black italic uppercase text-primary">Unit #{index + 1}</span>
-             <div className="h-px flex-1 bg-white/5" />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-             <label className="text-[8px] font-black text-text-muted uppercase tracking-widest ml-1">Installation Location</label>
-             <input 
-                type="text" 
-                value={item.location}
-                onChange={(e) => onUpdate({ location: e.target.value })}
-                className="bg-background-dark/50 border-none rounded-xl h-11 px-4 text-[11px] font-bold text-white focus:ring-1 focus:ring-primary placeholder:opacity-20"
-                placeholder="e.g. Level 2 Block B"
-             />
-          </div>
-
-          {isHoseReel ? (
-             <div className="grid grid-cols-1 gap-3">
-                <div className="grid grid-cols-2 gap-2">
-                   <ConditionToggle label="Hose Condition" value={item.hoseStatus} onToggle={(v) => onUpdate({ hoseStatus: v as any })} />
-                   <ConditionToggle label="Nozzle Condition" value={item.nozzleStatus} onToggle={(v) => onUpdate({ nozzleStatus: v as any })} />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                   <ConditionToggle label="Stop Valve" value={item.valveStatus} onToggle={(v) => onUpdate({ valveStatus: v as any })} />
-                   <ConditionToggle label="Drum / Swing" value={item.drumStatus} onToggle={(v) => onUpdate({ drumStatus: v as any })} />
-                </div>
-                <PressureToggle value={item.pressureStatus} onToggle={(v) => onUpdate({ pressureStatus: v as any })} />
-             </div>
-          ) : isHydrant ? (
-             <div className="grid grid-cols-1 gap-3">
-                <div className="grid grid-cols-2 gap-2">
-                   <ConditionToggle label="Hydrant Pillar" value={item.pillarStatus} onToggle={(v) => onUpdate({ pillarStatus: v as any })} />
-                   <ConditionToggle label="Canvas Hose" value={item.canvasStatus} onToggle={(v) => onUpdate({ canvasStatus: v as any })} />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                   <ConditionToggle label="Nozzle" value={item.nozzleStatus} onToggle={(v) => onUpdate({ nozzleStatus: v as any })} />
-                   <ConditionToggle label="Landing Valve" value={item.landingValveStatus} onToggle={(v) => onUpdate({ landingValveStatus: v as any })} />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                   <ConditionToggle label="O-Ring / Gasket" value={item.oringStatus} onToggle={(v) => onUpdate({ oringStatus: v as any })} />
-                   <ConditionToggle label="Cap & Chain" value={item.capChainStatus} onToggle={(v) => onUpdate({ capChainStatus: v as any })} />
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                   <ConditionToggle label="Hydrant Cabinet" value={item.cabinetStatus} onToggle={(v) => onUpdate({ cabinetStatus: v as any })} />
-                   <PressureToggle value={item.pressureStatus} onToggle={(v) => onUpdate({ pressureStatus: v as any })} />
-                </div>
-             </div>
-          ) : isWetRiser ? (
-            <div className="grid grid-cols-1 gap-3">
-               <div className="grid grid-cols-2 gap-2">
-                  <ConditionToggle label="Landing Valve" value={item.landingValveStatus} onToggle={(v) => onUpdate({ landingValveStatus: v as any })} />
-                  <ConditionToggle label="Breeching Inlet" value={item.breechingInletStatus} onToggle={(v) => onUpdate({ breechingInletStatus: v as any })} />
-               </div>
-               <div className="grid grid-cols-2 gap-2">
-                  <ConditionToggle label="Drain Valve" value={item.drainValveStatus} onToggle={(v) => onUpdate({ drainValveStatus: v as any })} />
-                  <ConditionToggle label="Cabinet / Glass" value={item.cabinetStatus} onToggle={(v) => onUpdate({ cabinetStatus: v as any })} />
-               </div>
-               <div className="grid grid-cols-2 gap-2">
-                  <ConditionToggle label="Nozzle Condition" value={item.nozzleStatus} onToggle={(v) => onUpdate({ nozzleStatus: v as any })} />
-                  <ConditionToggle label="Hose Condition" value={item.hoseStatus} onToggle={(v) => onUpdate({ hoseStatus: v as any })} />
-               </div>
-               <div className="grid grid-cols-2 gap-2">
-                  <ConditionToggle label="Cap & Chain" value={item.capChainStatus} onToggle={(v) => onUpdate({ capChainStatus: v as any })} />
-                  <ConditionToggle label="O-Ring / Gasket" value={item.oringStatus} onToggle={(v) => onUpdate({ oringStatus: v as any })} />
-               </div>
-               <PressureToggle value={item.pressureStatus} onToggle={(v) => onUpdate({ pressureStatus: v as any })} />
-            </div>
-          ) : isDryRiser ? (
-            <div className="grid grid-cols-1 gap-3">
-               <div className="grid grid-cols-2 gap-2">
-                  <ConditionToggle label="Breeching Inlet" value={item.breechingInletStatus} onToggle={(v) => onUpdate({ breechingInletStatus: v as any })} />
-                  <ConditionToggle label="Landing Valve" value={item.landingValveStatus} onToggle={(v) => onUpdate({ landingValveStatus: v as any })} />
-               </div>
-               <div className="grid grid-cols-2 gap-2">
-                  <ConditionToggle label="Drain Valve" value={item.drainValveStatus} onToggle={(v) => onUpdate({ drainValveStatus: v as any })} />
-                  <ConditionToggle label="Air Release Valve" value={item.airReleaseValveStatus} onToggle={(v) => onUpdate({ airReleaseValveStatus: v as any })} />
-               </div>
-               <div className="grid grid-cols-2 gap-2">
-                  <ConditionToggle label="Cabinet / Box" value={item.cabinetStatus} onToggle={(v) => onUpdate({ cabinetStatus: v as any })} />
-                  <ConditionToggle label="Cap & Chain" value={item.capChainStatus} onToggle={(v) => onUpdate({ capChainStatus: v as any })} />
-               </div>
-               <div className="grid grid-cols-2 gap-2">
-                  <ConditionToggle label="O-Ring / Gasket" value={item.oringStatus} onToggle={(v) => onUpdate({ oringStatus: v as any })} />
-                  <ConditionToggle label="Nozzle Condition" value={item.nozzleStatus} onToggle={(v) => onUpdate({ nozzleStatus: v as any })} />
-               </div>
-            </div>
-          ) : (
-             <div className="flex items-center justify-between bg-background-dark/30 p-3 rounded-2xl border border-white/5">
-                <span className="text-[9px] font-black uppercase text-white tracking-tight">Physical Status</span>
-                <div className="flex gap-1 h-8">
-                   {['Good', 'Damaged'].map(v => (
-                      <button 
-                         key={v}
-                         onClick={() => onUpdate({ condition: v as any })}
-                         className={`px-4 rounded-lg text-[8px] font-black uppercase transition-all ${item.condition === v ? (v === 'Good' ? 'bg-emerald-600' : 'bg-primary shadow-lg animate-pulse') + ' text-white' : 'bg-background-dark/50 text-text-muted'}`}
-                      >
-                         {v}
-                      </button>
-                   ))}
-                </div>
-             </div>
-          )}
-
-          {hasFault && (
-             <div className="flex gap-3 pt-2 animate-in slide-in-from-top duration-300 border-t border-white/5 mt-2">
-                <div 
-                   onClick={() => fileRef.current?.click()}
-                   className="w-16 h-16 bg-background-dark rounded-2xl border border-primary/20 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer hover:border-primary/50 transition-colors"
-                >
-                   {item.photo ? (
-                      <img src={item.photo} className="w-full h-full object-cover" />
-                   ) : (
-                      <span className="material-symbols-outlined text-primary/40 text-xl">add_a_photo</span>
-                   )}
-                   <input type="file" ref={fileRef} className="hidden" accept="image/*" capture="environment" onChange={handleFile} />
-                </div>
-                <textarea 
-                   value={item.remarks || ''}
-                   onChange={(e) => onUpdate({ remarks: e.target.value })}
-                   placeholder="Identify specific asset defect..."
-                   className="flex-1 bg-background-dark/50 border-none rounded-2xl text-[10px] p-3 h-16 text-white font-bold focus:ring-1 focus:ring-primary placeholder:opacity-20"
-                />
-             </div>
-          )}
-       </div>
-    </div>
-  );
-};
-
-const ConditionToggle: React.FC<{ label: string; value: 'Normal' | 'Fault'; onToggle: (v: string) => void }> = ({ label, value, onToggle }) => (
-  <div className="bg-background-dark/30 p-3 rounded-2xl border border-white/5 flex flex-col gap-2">
-     <span className="text-[7px] font-black uppercase text-text-muted tracking-widest text-center">{label}</span>
-     <div className="flex gap-1 h-7">
-        {['Normal', 'Fault'].map(v => (
-           <button 
-              key={v}
-              onClick={() => onToggle(v)}
-              className={`flex-1 rounded-lg text-[7px] font-black uppercase transition-all ${value === v ? (v === 'Normal' ? 'bg-emerald-600' : 'bg-primary') + ' text-white' : 'bg-background-dark/50 text-text-muted'}`}
-           >
-              {v}
-           </button>
-        ))}
-     </div>
-  </div>
-);
-
-const PressureToggle: React.FC<{ value: 'Normal' | 'Low'; onToggle: (v: string) => void }> = ({ value, onToggle }) => (
-  <div className="bg-background-dark/30 p-3 rounded-2xl border border-white/5 flex items-center justify-between">
-    <span className="text-[9px] font-black uppercase text-white tracking-tight">Pressure Status</span>
-    <div className="flex gap-1 h-8">
-      {['Normal', 'Low'].map(v => (
-          <button 
-            key={v}
-            onClick={() => onToggle(v)}
-            className={`px-4 rounded-lg text-[8px] font-black uppercase transition-all ${value === v ? (v === 'Normal' ? 'bg-emerald-600' : 'bg-primary shadow-lg animate-pulse') + ' text-white' : 'bg-background-dark/50 text-text-muted'}`}
-          >
-            {v}
-          </button>
-      ))}
-    </div>
-  </div>
-);
-
-const PhotoUploader: React.FC<{ 
-  photos: string[]; 
-  onPhotosChange: (p: string[]) => void;
-}> = ({ photos, onPhotosChange }) => {
-  const cameraRef = useRef<HTMLInputElement>(null);
-  const [activeIdx, setActiveIdx] = useState<number | null>(null);
-
-  const handleCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && activeIdx !== null) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const newPhotos = [...photos];
-        newPhotos[activeIdx] = reader.result as string;
-        onPhotosChange(newPhotos);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const removePhoto = (idx: number) => {
-    const newPhotos = [...photos];
-    newPhotos[idx] = '';
-    onPhotosChange(newPhotos);
-  };
-
-  const slots = [0, 1, 2, 3];
-
-  return (
-    <div className="grid grid-cols-4 gap-3">
-      {slots.map((idx) => (
-        <div 
-          key={idx} 
-          onClick={() => { setActiveIdx(idx); cameraRef.current?.click(); }} 
-          className={`aspect-square bg-background-dark rounded-2xl border border-dashed flex flex-col items-center justify-center overflow-hidden cursor-pointer active:scale-95 transition-all group relative ${photos[idx] ? 'border-primary/40' : 'border-white/10 hover:border-primary/40'}`}
-        >
-          {photos[idx] ? (
-            <>
-              <img src={photos[idx]} className="w-full h-full object-cover" />
-              <button 
-                onClick={(e) => { e.stopPropagation(); removePhoto(idx); }} 
-                className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center text-white"
-              >
-                <span className="material-symbols-outlined text-[12px]">close</span>
-              </button>
-            </>
-          ) : (
-            <>
-              <span className="material-symbols-outlined text-xl opacity-20 group-hover:opacity-100 transition-opacity">add_a_photo</span>
-              <span className="text-[6px] font-black uppercase text-text-muted mt-1">Slot {idx + 1}</span>
-            </>
-          )}
-        </div>
-      ))}
-      <input type="file" ref={cameraRef} className="hidden" accept="image/*" capture="environment" onChange={handleCapture} />
+    <div 
+      onClick={() => fileRef.current?.click()} 
+      className={`bg-background-dark rounded-xl border border-primary/20 flex items-center justify-center overflow-hidden cursor-pointer hover:border-primary/50 transition-colors shadow-inner relative group ${className || 'w-full aspect-square'}`}
+    >
+      {photo ? (
+        <img src={photo} className="w-full h-full object-cover" />
+      ) : (
+        <span className="material-symbols-outlined text-primary text-xl">camera_outdoor</span>
+      )}
+      <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={handleFile} />
     </div>
   );
 };

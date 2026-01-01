@@ -16,7 +16,6 @@ const SignaturePad: React.FC<SignaturePadProps> = ({ onSign, placeholder, initia
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEmpty, setIsEmpty] = useState(true);
 
-  // Load existing signature onto canvas
   useEffect(() => {
     if (initialData && canvasRef.current) {
       const canvas = canvasRef.current;
@@ -117,9 +116,8 @@ const InspectionCover: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   
-  // Ensure we have a valid ID. If somehow accessed via /new, it generates one once.
   const [activeId] = useState(id && id !== 'new' ? id : `AUDIT-${Date.now()}`);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const [currentUser] = useState<User>(() => {
     const saved = localStorage.getItem('current_user');
@@ -127,33 +125,33 @@ const InspectionCover: React.FC = () => {
   });
 
   const [clientName, setClientName] = useState('');
-  const [location, setLocation] = useState('');
+  const [clientRepName, setClientRepName] = useState('');
+  const [clientAuthDate, setClientAuthDate] = useState(new Date().toISOString().split('T')[0]);
   const [frequency, setFrequency] = useState('Monthly');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [clientSigData, setClientSigData] = useState('');
   const [techSigData, setTechSigData] = useState('');
-  const [coverPhoto, setCoverPhoto] = useState<string | null>(null);
+  const [clientLogo, setClientLogo] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<InspectionStatus>(InspectionStatus.DRAFT);
 
-  // Load data on mount
   useEffect(() => {
     const saved = localStorage.getItem(`setup_${activeId}`);
     if (saved) {
       const data = JSON.parse(saved);
       setClientName(data.clientName || '');
-      setLocation(data.location || '');
+      setClientRepName(data.clientRepName || '');
+      setClientAuthDate(data.clientAuthDate || data.date || new Date().toISOString().split('T')[0]);
       setFrequency(data.frequency || 'Monthly');
       setDate(data.date || new Date().toISOString().split('T')[0]);
       setClientSigData(data.clientSigData || '');
       setTechSigData(data.techSigData || '');
-      setCoverPhoto(data.coverPhoto || null);
+      setClientLogo(data.clientLogo || null);
       setCurrentStatus(data.status || InspectionStatus.DRAFT);
     } else {
-      // If it's a completely new audit, initialize it with current technician info
-      // so it appears on the dashboard immediately
       const initialSetup = {
         clientName: '',
-        location: '',
+        clientRepName: '',
+        clientAuthDate: new Date().toISOString().split('T')[0],
         frequency: 'Monthly',
         date: new Date().toISOString().split('T')[0],
         technicianId: currentUser.id,
@@ -164,41 +162,43 @@ const InspectionCover: React.FC = () => {
     }
   }, [activeId, currentUser]);
 
-  // Auto-save data on every change
   useEffect(() => {
     const setupData = { 
       clientName, 
-      location, 
+      clientRepName,
+      clientAuthDate,
       frequency, 
       date, 
       clientSigData, 
       techSigData, 
-      coverPhoto,
+      clientLogo,
       status: currentStatus,
-      technicianId: currentUser.id, // Keep tech ID persistent
+      technicianId: currentUser.id,
       techName: currentUser.name
     };
     localStorage.setItem(`setup_${activeId}`, JSON.stringify(setupData));
-  }, [clientName, location, frequency, date, clientSigData, techSigData, coverPhoto, activeId, currentStatus, currentUser]);
+  }, [clientName, clientRepName, clientAuthDate, frequency, date, clientSigData, techSigData, clientLogo, activeId, currentStatus, currentUser]);
 
-  const handlePhotoClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
-        setCoverPhoto(reader.result as string);
+        setClientLogo(reader.result as string);
       };
       reader.readAsDataURL(file);
     }
   };
 
+  const removePhoto = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setClientLogo(null);
+    if (logoInputRef.current) logoInputRef.current.value = '';
+  };
+
   const handleStart = () => {
-    if (!clientName || !location || !clientSigData || !techSigData) {
-      alert("Please ensure Building Name, Location, and both Signatures are completed.");
+    if (!clientName || !clientSigData || !techSigData || !clientRepName) {
+      alert("Please ensure Building Name, Representative Name, and both Signatures are completed.");
       return;
     }
     navigate(`/checklist/${activeId}`);
@@ -208,55 +208,55 @@ const InspectionCover: React.FC = () => {
     <div className="flex flex-col h-full bg-background-dark overflow-y-auto no-scrollbar pb-32">
       <TopBar title="Report Setup" showBack onBack={() => navigate('/')} />
       
-      <div className="p-5 flex flex-col gap-6 animate-in fade-in slide-in-from-bottom duration-500">
-        <div className="flex flex-col items-center gap-3 text-center py-2">
-          <div 
-            onClick={handlePhotoClick}
-            className="w-24 h-24 bg-surface-dark rounded-3xl border border-white/10 flex items-center justify-center shadow-2xl relative overflow-hidden cursor-pointer group hover:border-primary/50 transition-all active:scale-95"
-          >
-            {coverPhoto ? (
-              <img src={coverPhoto} alt="Cover" className="w-full h-full object-cover" />
-            ) : (
-              <span className="material-symbols-outlined text-4xl text-primary material-symbols-filled">add_a_photo</span>
-            )}
-            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-               <span className="text-[8px] font-black uppercase text-white tracking-widest">Change Photo</span>
-            </div>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept="image/*" 
-              onChange={handleFileChange} 
-            />
-          </div>
-          <div>
-            <h1 className="text-xl font-black uppercase tracking-tight italic leading-none">Job Initiation</h1>
-            <p className="text-text-muted text-[9px] font-black uppercase tracking-[0.2em] mt-2">Ref: {activeId}</p>
-          </div>
+      <div className="p-5 flex flex-col gap-6 animate-in fade-in duration-500">
+        
+        {/* Logo Section */}
+        <div className="flex flex-col gap-4">
+           <div className="flex items-center justify-between">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-text-muted italic">Report Visuals</h3>
+              <span className="text-[8px] font-black text-primary uppercase">Identity Verification</span>
+           </div>
+
+           <div className="w-full">
+              {/* Client Logo Slot */}
+              <div 
+                onClick={() => logoInputRef.current?.click()}
+                className="bg-surface-dark border border-white/5 rounded-3xl h-40 flex flex-col items-center justify-center relative overflow-hidden group transition-all hover:border-primary/40 active:scale-[0.99] cursor-pointer shadow-xl"
+              >
+                 {clientLogo ? (
+                   <>
+                    <img src={clientLogo} className="w-full h-full object-contain p-6" alt="Client Logo" />
+                    <button 
+                      onClick={removePhoto}
+                      className="absolute top-4 right-4 w-8 h-8 bg-primary rounded-full flex items-center justify-center text-white shadow-lg z-20 hover:scale-110 active:scale-90 transition-all"
+                    >
+                      <span className="material-symbols-outlined text-sm">close</span>
+                    </button>
+                   </>
+                 ) : (
+                   <div className="flex flex-col items-center gap-2">
+                      <span className="material-symbols-outlined text-primary text-4xl">add_photo_alternate</span>
+                      <div className="flex flex-col items-center">
+                        <span className="text-[10px] font-black uppercase text-white tracking-widest">Upload Client Logo</span>
+                        <span className="text-[8px] font-black uppercase text-text-muted mt-1 opacity-50 tracking-tighter">PNG / JPG / WEBP</span>
+                      </div>
+                   </div>
+                 )}
+                 <input type="file" ref={logoInputRef} className="hidden" accept="image/*" onChange={handlePhotoUpload} />
+              </div>
+           </div>
         </div>
 
-        <div className="flex flex-col gap-5">
+        <div className="flex flex-col gap-5 mt-2">
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted ml-1">Building / Client Name</label>
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted ml-1">Building Name</label>
               <input 
                 type="text" 
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
-                placeholder="Enter client name..."
-                className="bg-surface-dark border-none rounded-xl h-12 px-4 text-sm focus:ring-2 focus:ring-primary transition-all font-bold placeholder:font-normal placeholder:opacity-20"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted ml-1">Location / Zone</label>
-              <input 
-                type="text" 
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. Level 3, Wing B"
-                className="bg-surface-dark border-none rounded-xl h-12 px-4 text-sm focus:ring-2 focus:ring-primary transition-all font-bold placeholder:font-normal placeholder:opacity-20"
+                placeholder="Enter building name..."
+                className="bg-surface-dark border-none rounded-xl h-12 px-4 text-sm focus:ring-2 focus:ring-primary transition-all font-bold placeholder:font-normal placeholder:opacity-20 text-white"
               />
             </div>
           </div>
@@ -267,7 +267,7 @@ const InspectionCover: React.FC = () => {
               <select 
                 value={frequency}
                 onChange={(e) => setFrequency(e.target.value)}
-                className="bg-surface-dark border-none rounded-xl h-12 px-4 text-sm focus:ring-2 focus:ring-primary transition-all font-bold"
+                className="bg-surface-dark border-none rounded-xl h-12 px-4 text-sm focus:ring-2 focus:ring-primary transition-all font-bold text-white appearance-none"
               >
                 <option>Monthly</option>
                 <option>Quarterly</option>
@@ -280,7 +280,7 @@ const InspectionCover: React.FC = () => {
                 type="date" 
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="bg-surface-dark border-none rounded-xl h-12 px-4 text-sm focus:ring-2 focus:ring-primary transition-all font-bold"
+                className="bg-surface-dark border-none rounded-xl h-12 px-4 text-sm focus:ring-2 focus:ring-primary transition-all font-bold text-white"
               />
             </div>
           </div>
@@ -290,7 +290,31 @@ const InspectionCover: React.FC = () => {
                 <span className="material-symbols-outlined text-primary text-sm">person_pin</span>
                 <h3 className="text-[10px] font-black uppercase tracking-widest italic">Client Authorization</h3>
              </div>
-             <SignaturePad onSign={setClientSigData} placeholder="Client Signature Required" initialData={clientSigData} />
+             
+             <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[8px] font-black uppercase tracking-[0.2em] text-text-muted ml-1">Representative Name</label>
+                  <input 
+                    type="text" 
+                    value={clientRepName}
+                    onChange={(e) => setClientRepName(e.target.value)}
+                    placeholder="Nama wakil client..."
+                    className="bg-background-dark/50 border-none rounded-xl h-10 px-4 text-xs focus:ring-1 focus:ring-primary transition-all font-bold text-white"
+                  />
+                </div>
+                
+                <div className="flex flex-col gap-1">
+                  <label className="text-[8px] font-black uppercase tracking-[0.2em] text-text-muted ml-1">Authorization Date</label>
+                  <input 
+                    type="date" 
+                    value={clientAuthDate}
+                    onChange={(e) => setClientAuthDate(e.target.value)}
+                    className="bg-background-dark/50 border-none rounded-xl h-10 px-4 text-xs focus:ring-1 focus:ring-primary transition-all font-bold text-white"
+                  />
+                </div>
+
+                <SignaturePad onSign={setClientSigData} placeholder="Client Signature Required" initialData={clientSigData} />
+             </div>
           </div>
 
           <div className="bg-surface-dark p-5 rounded-2xl border border-white/5 flex flex-col gap-4 shadow-xl">
@@ -311,7 +335,7 @@ const InspectionCover: React.FC = () => {
         <button 
           onClick={handleStart}
           className={`w-full h-16 rounded-2xl flex items-center justify-center gap-3 shadow-2xl active:scale-[0.98] transition-all group ${
-            clientSigData && techSigData && clientName && location ? 'bg-primary text-white shadow-primary/30' : 'bg-white/5 text-white/20 cursor-not-allowed'
+            clientSigData && techSigData && clientName && clientRepName ? 'bg-primary text-white shadow-primary/30' : 'bg-white/5 text-white/20 cursor-not-allowed'
           }`}
         >
           <span className="font-black uppercase tracking-[0.2em] text-sm italic">Begin Checklist</span>
