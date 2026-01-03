@@ -336,9 +336,10 @@ const PumpSystem: React.FC = () => {
 
 const PumpUnitRow: React.FC<{ component: PumpComponent; onUpdate: (upd: Partial<PumpComponent>) => void; isStandby?: boolean }> = ({ component, onUpdate, isStandby }) => {
   const isDiesel = component.type === 'Diesel';
+  const isFault = component.status === 'Fault';
 
   return (
-    <div className="p-4 rounded-xl border bg-background-dark/30 border-white/5">
+    <div className={`p-4 rounded-xl border transition-all ${isFault ? 'bg-primary/5 border-primary/20 shadow-[0_0_15px_rgba(236,19,19,0.1)]' : 'bg-background-dark/30 border-white/5'}`}>
        <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between pb-2 border-b border-white/5">
              <div className="flex flex-col">
@@ -349,7 +350,7 @@ const PumpUnitRow: React.FC<{ component: PumpComponent; onUpdate: (upd: Partial<
                    ))}
                 </div>
              </div>
-             <div className="flex gap-1 h-7 self-start">{(['Normal', 'Fault'] as const).map(s => (<button key={s} onClick={() => onUpdate({ status: s })} className={`px-3 rounded-lg text-[7px] font-black uppercase ${component.status === s ? 'bg-primary text-white' : 'bg-background-dark text-text-muted'}`}>{s}</button>))}</div>
+             <div className="flex gap-1 h-7 self-start">{(['Normal', 'Fault'] as const).map(s => (<button key={s} onClick={() => onUpdate({ status: s })} className={`px-3 rounded-lg text-[7px] font-black uppercase ${component.status === s ? (s === 'Normal' ? 'bg-emerald-600' : 'bg-primary') + ' text-white' : 'bg-background-dark text-text-muted'}`}>{s}</button>))}</div>
           </div>
           
           <div className="grid grid-cols-2 gap-3">
@@ -369,10 +370,17 @@ const PumpUnitRow: React.FC<{ component: PumpComponent; onUpdate: (upd: Partial<
             </div>
           )}
 
-          <div className="flex flex-col gap-1 mt-1">
-            <span className="text-[7px] font-black uppercase text-text-muted ml-1">Remark</span>
-            <textarea value={component.remarks || ''} onChange={(e) => onUpdate({ remarks: e.target.value })} className="w-full bg-background-dark/50 border-none rounded-lg p-2 text-[9px] h-14 text-white italic" placeholder="Unit-specific notes..." />
-          </div>
+          {isFault ? (
+            <div className="flex gap-2 mt-1 animate-in slide-in-from-top duration-300">
+               <PhotoCaptureBox photo={component.photo} onCapture={(p) => onUpdate({ photo: p })} />
+               <textarea value={component.remarks || ''} onChange={(e) => onUpdate({ remarks: e.target.value })} className="flex-1 bg-background-dark/50 border-none rounded-lg p-2 text-[8px] text-white italic h-16" placeholder="Describe fault evidence..." />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-1 mt-1">
+              <span className="text-[7px] font-black uppercase text-text-muted ml-1">Remark</span>
+              <textarea value={component.remarks || ''} onChange={(e) => onUpdate({ remarks: e.target.value })} className="w-full bg-background-dark/50 border-none rounded-lg p-2 text-[9px] h-14 text-white italic" placeholder="Unit-specific notes..." />
+            </div>
+          )}
        </div>
     </div>
   );
