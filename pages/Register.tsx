@@ -1,20 +1,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-
-const BestroLogo = () => (
-  <svg width="160" height="80" viewBox="0 0 240 120" fill="none" xmlns="http://www.w3.org/2000/svg" className="drop-shadow-[0_0_10px_rgba(236,19,19,0.3)]">
-    <ellipse cx="120" cy="60" rx="110" ry="52" fill="#ec1313" />
-    <path d="M45 28C75 18 165 18 195 28" stroke="#E5E7EB" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.6" />
-    <path d="M45 92C75 102 165 102 195 92" stroke="#E5E7EB" strokeWidth="1.5" strokeLinecap="round" strokeOpacity="0.6" />
-    <text x="100" y="66" fontFamily="Inter, Arial Black, sans-serif" fontSize="42" fontWeight="900" fill="white" textAnchor="middle" letterSpacing="-1.5">BESTR</text>
-    <g transform="translate(178, 55)">
-      <circle cx="0" cy="0" r="17" fill="white" />
-      <path d="M0 -9C0 -9 6 -3 6 3C6 9 0 12 0 12C0 12 -6 9 -6 3C-6 -3 0 -9 0 -9Z" fill="#ec1313" />
-    </g>
-    <text x="120" y="88" fontFamily="Inter, Arial, sans-serif" fontSize="11" fontWeight="800" fill="white" textAnchor="middle" letterSpacing="5" fillOpacity="0.95">ENGINEERING</text>
-  </svg>
-);
+import { BestroLogoSVG } from './Login';
 
 const Register: React.FC = () => {
   const navigate = useNavigate();
@@ -56,7 +43,7 @@ const Register: React.FC = () => {
       
       <div className="flex-1 flex flex-col p-8 gap-8 relative z-10 overflow-y-auto no-scrollbar pt-12">
         <div className="flex flex-col items-center gap-2">
-          <BestroLogo />
+          <BestroLogoSVG className="h-28 drop-shadow-[0_0_15px_rgba(236,19,19,0.3)]" />
           <div className="text-center mt-4">
             <h1 className="text-2xl font-black italic uppercase text-white">Enrollment</h1>
             <p className="text-text-muted text-[10px] font-black uppercase mt-1">Maintenance Registry</p>

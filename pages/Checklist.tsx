@@ -100,10 +100,16 @@ const Checklist: React.FC = () => {
 
   const getStatusBadgeStyles = (status: string) => {
     switch(status) {
-      case 'COMPLETED': return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
-      case 'FAULT': return 'text-primary bg-primary/10 border-primary/20 animate-pulse';
-      case 'N/A': return 'text-slate-400 bg-slate-400/10 border-slate-400/20';
-      default: return 'text-text-muted bg-white/5 border-white/5';
+      case 'COMPLETED': 
+        return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+      case 'FAULT': 
+        return 'text-primary bg-primary/10 border-primary/20 animate-pulse';
+      case 'PENDING':
+        return 'text-amber-500 bg-amber-500/10 border-amber-500/20';
+      case 'N/A': 
+        return 'text-slate-400 bg-slate-400/10 border-slate-400/20';
+      default: 
+        return 'text-text-muted bg-white/5 border-white/5';
     }
   };
 
@@ -169,6 +175,7 @@ const Checklist: React.FC = () => {
             const isNA = status === 'N/A';
             const isFault = status === 'FAULT';
             const isCompleted = status === 'COMPLETED';
+            const isPending = status === 'PENDING';
 
             return (
               <div 
@@ -176,22 +183,23 @@ const Checklist: React.FC = () => {
                 onClick={() => handleSystemClick(cat, isNA)}
                 className={`bg-surface-dark p-4 rounded-2xl border flex items-center justify-between group active:scale-[0.98] transition-all cursor-pointer shadow-lg 
                   ${isNA ? 'border-white/5 opacity-50 grayscale cursor-default' : 
-                    isFault ? 'border-primary/40 bg-primary/5' : 
-                    isCompleted ? 'border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/40' :
+                    isFault ? 'border-primary/40 bg-primary/5 shadow-[0_0_15px_rgba(236,19,19,0.1)]' : 
+                    isCompleted ? 'border-emerald-500/30 bg-emerald-500/5 hover:border-emerald-500/50' :
+                    isPending ? 'border-amber-500/30 bg-amber-500/5 hover:border-amber-500/50' :
                     'border-primary/30 bg-primary/5 hover:border-primary'}`}
               >
                 <div className="flex items-center gap-4">
                   <div className={`w-12 h-12 rounded-xl bg-background-dark flex items-center justify-center transition-all shadow-inner 
-                    ${status !== 'PENDING' ? 'text-primary' : 'text-primary/20'}`}>
+                    ${isCompleted ? 'text-emerald-500' : isFault ? 'text-primary' : isPending ? 'text-amber-500' : 'text-text-muted'}`}>
                     <span className="material-symbols-outlined text-2xl group-hover:scale-110 transition-transform">{cat.icon}</span>
                   </div>
                   <div className="flex flex-col">
                     <h4 className={`font-bold text-xs uppercase tracking-tight transition-colors 
-                      ${isNA ? 'text-text-muted' : (isFault || status === 'PENDING') ? 'text-primary' : 'group-hover:text-primary'}`}>
+                      ${isNA ? 'text-text-muted' : isCompleted ? 'text-emerald-500/80 group-hover:text-emerald-500' : isFault ? 'text-primary' : isPending ? 'text-amber-500/80 group-hover:text-amber-500' : 'group-hover:text-primary'}`}>
                       {cat.label}
                     </h4>
                     <span className="text-[8px] font-black uppercase text-text-muted tracking-widest">
-                        {status === 'PENDING' ? 'Action Required' : 
+                        {isPending ? 'Action Required' : 
                          isNA ? 'System Not Present' : 
                          isFault ? 'Repair / Review Needed' :
                          'Inspection Verified'}
@@ -215,7 +223,7 @@ const Checklist: React.FC = () => {
                          {status === 'COMPLETED' ? 'OK' : status}
                       </div>
                       {!isNA && (
-                        <span className={`material-symbols-outlined text-primary text-xl transition-all opacity-20 group-hover:opacity-100 group-hover:translate-x-1`}>
+                        <span className={`material-symbols-outlined text-xl transition-all opacity-20 group-hover:opacity-100 group-hover:translate-x-1 ${isCompleted ? 'text-emerald-500' : isFault ? 'text-primary' : isPending ? 'text-amber-500' : 'text-primary'}`}>
                           {isCompleted || isFault ? 'edit_note' : 'chevron_right'}
                         </span>
                       )}

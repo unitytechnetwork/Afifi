@@ -32,7 +32,9 @@ const FireExtinguisher: React.FC = () => {
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
 
-  const [systemDescription, setSystemDescription] = useState('Portable fire extinguishers maintenance and certification check.');
+  // Updated default technical description as requested
+  const [systemDescription, setSystemDescription] = useState('Portable fire extinguishers are provided as first-aid firefighting equipment to control incipient fires. Inspection was carried out to verify unit condition, pressure indication, hose and nozzle integrity, mounting arrangement, and service validity.');
+  
   const [systemOverallStatus, setSystemOverallStatus] = useState<'Normal' | 'Faulty' | 'Partial' | 'N/A'>('Normal');
   const [overallRemarks, setOverallRemarks] = useState('');
   const [servicePhotos, setServicePhotos] = useState<string[]>(['', '', '', '']);
@@ -158,7 +160,7 @@ const FireExtinguisher: React.FC = () => {
                 <option value="Normal">Normal</option><option value="Faulty">Faulty</option><option value="Partial">Partial</option><option value="N/A">N/A</option>
               </select>
            </div>
-           <textarea value={systemDescription} onChange={(e) => setSystemDescription(e.target.value)} className="bg-background-dark/50 border-white/5 border rounded-xl p-3 text-xs font-medium h-16 text-white" placeholder="Description..." />
+           <textarea value={systemDescription} onChange={(e) => setSystemDescription(e.target.value)} className="bg-background-dark/50 border-white/5 border rounded-xl p-3 text-xs font-medium h-24 text-white leading-relaxed" placeholder="Description..." />
         </section>
 
         <div className="flex justify-between items-center px-1">
@@ -173,7 +175,7 @@ const FireExtinguisher: React.FC = () => {
           {items.map((item, idx) => (
             <div key={item.id} className="p-6 rounded-[2.5rem] bg-surface-dark border border-white/5 shadow-2xl relative transition-all animate-in slide-in-from-bottom group overflow-hidden">
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-primary/20" />
-                <button onClick={() => setItems(items.filter(i => i.id !== item.id))} className="absolute top-6 right-6 text-text-muted hover:text-primary"><span className="material-symbols-outlined text-sm">delete</span></button>
+                <button onClick={() => setItems(items.filter(i => i.id !== item.id))} className="absolute top-6 right-6 text-text-muted hover:text-primary transition-colors"><span className="material-symbols-outlined text-sm">delete</span></button>
                 
                 <div className="flex items-center gap-2 border-b border-white/5 pb-4 mb-5">
                   <span className="text-[11px] font-black italic uppercase text-primary">Unit #{idx + 1}</span>

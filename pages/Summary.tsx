@@ -234,10 +234,10 @@ const Summary: React.FC = () => {
                    </div>
                 </div>
              )) : (
-                <div className="py-20 bg-surface-dark/40 rounded-3xl border border-dashed border-white/10 flex flex-col items-center justify-center opacity-70 text-center px-10">
+                <div className="py-20 bg-surface-dark/40 rounded-3xl border border-dashed border-white/10 flex flex-col items-center justify-center opacity-80 text-center px-10">
                    <span className="material-symbols-outlined text-5xl mb-4 text-emerald-500">verified_user</span>
-                   <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-500 italic">(SyStem In working Normal Condition)</p>
-                   <p className="text-[8px] font-bold mt-2 tracking-widest leading-relaxed text-text-muted">System performance verified within certified parameters.</p>
+                   <p className="text-[10px] font-bold tracking-tight text-emerald-500 italic leading-relaxed">Based on the inspection conducted, all fire protection systems were found to be functional and compliant with the required standards.</p>
+                   <p className="text-[7px] font-bold mt-3 tracking-widest leading-relaxed text-text-muted uppercase opacity-50">System performance verified within certified parameters.</p>
                 </div>
              )}
           </div>

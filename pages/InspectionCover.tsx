@@ -127,12 +127,14 @@ const InspectionCover: React.FC = () => {
   const [clientName, setClientName] = useState('');
   const [clientRepName, setClientRepName] = useState('');
   const [clientAuthDate, setClientAuthDate] = useState(new Date().toISOString().split('T')[0]);
-  const [frequency, setFrequency] = useState('Monthly');
+  const [frequency, setFrequency] = useState('Cycle 1');
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [clientSigData, setClientSigData] = useState('');
   const [techSigData, setTechSigData] = useState('');
   const [clientLogo, setClientLogo] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState<InspectionStatus>(InspectionStatus.DRAFT);
+
+  const cycleOptions = Array.from({ length: 12 }, (_, i) => `Cycle ${i + 1}`);
 
   useEffect(() => {
     const saved = localStorage.getItem(`setup_${activeId}`);
@@ -141,7 +143,7 @@ const InspectionCover: React.FC = () => {
       setClientName(data.clientName || '');
       setClientRepName(data.clientRepName || '');
       setClientAuthDate(data.clientAuthDate || data.date || new Date().toISOString().split('T')[0]);
-      setFrequency(data.frequency || 'Monthly');
+      setFrequency(data.frequency || 'Cycle 1');
       setDate(data.date || new Date().toISOString().split('T')[0]);
       setClientSigData(data.clientSigData || '');
       setTechSigData(data.techSigData || '');
@@ -152,7 +154,7 @@ const InspectionCover: React.FC = () => {
         clientName: '',
         clientRepName: '',
         clientAuthDate: new Date().toISOString().split('T')[0],
-        frequency: 'Monthly',
+        frequency: 'Cycle 1',
         date: new Date().toISOString().split('T')[0],
         technicianId: currentUser.id,
         techName: currentUser.name,
@@ -269,9 +271,9 @@ const InspectionCover: React.FC = () => {
                 onChange={(e) => setFrequency(e.target.value)}
                 className="bg-surface-dark border-none rounded-xl h-12 px-4 text-sm focus:ring-2 focus:ring-primary transition-all font-bold text-white appearance-none"
               >
-                <option>Monthly</option>
-                <option>Quarterly</option>
-                <option>Yearly</option>
+                {cycleOptions.map(opt => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
               </select>
             </div>
             <div className="flex flex-col gap-1.5">

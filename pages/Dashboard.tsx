@@ -26,6 +26,7 @@ const Dashboard: React.FC = () => {
   const [localAudits, setLocalAudits] = useState<Inspection[]>([]);
   const [totalOpenDefects, setTotalOpenDefects] = useState(0);
 
+  // Check role: Must be exactly 'Supervisor' or 'Admin'
   const isSupervisor = currentUser?.role === 'Supervisor' || currentUser?.role === 'Admin';
 
   useEffect(() => {
@@ -35,88 +36,91 @@ const Dashboard: React.FC = () => {
     setAllUsers(unique);
   }, [refreshTrigger]);
 
-  useEffect(() => {
-    const loadAudits = () => {
-      const audits: Inspection[] = [];
-      const keys = Object.keys(localStorage);
-      let defectCount = 0;
-      
-      keys.forEach(key => {
-        if (key.startsWith('setup_AUDIT-')) {
-          try {
-            const rawData = localStorage.getItem(key);
-            if (!rawData) return;
-            
-            const setupData = JSON.parse(rawData);
-            if (!setupData) return;
+  const loadAudits = () => {
+    const audits: Inspection[] = [];
+    const keys = Object.keys(localStorage);
+    let defectCount = 0;
+    
+    keys.forEach(key => {
+      if (key.startsWith('setup_AUDIT-')) {
+        try {
+          const rawData = localStorage.getItem(key);
+          if (!rawData) return;
+          
+          const setupData = JSON.parse(rawData);
+          if (!setupData) return;
 
-            const auditId = key.replace('setup_', '');
-            
-            // Check for defects in this specific audit to update counter
-            const trackerKey = `defect_registry_${auditId}`;
-            const trackerRaw = localStorage.getItem(trackerKey);
-            if (trackerRaw) {
-              const tracker = JSON.parse(trackerRaw);
-              defectCount += Object.values(tracker).filter((d: any) => d.status !== 'Rectified').length;
-            }
-
-            const checklistKey = `checklist_${auditId}`;
-            const checklistData = localStorage.getItem(checklistKey);
-            let itemsCompleted = 0;
-            if (checklistData) {
-              try {
-                const parsed = JSON.parse(checklistData);
-                itemsCompleted = Object.keys(parsed).filter(k => k !== 'panelSpecs' && k !== 'isNA').length;
-              } catch { itemsCompleted = 0; }
-            }
-
-            audits.push({
-              id: auditId,
-              title: setupData.clientName || 'Draft Inspection',
-              location: setupData.location || 'Location Not Set',
-              date: setupData.date || 'No Date',
-              status: setupData.status || InspectionStatus.DRAFT,
-              itemsCompleted: itemsCompleted,
-              totalItems: 13,
-              technician: setupData.techName || 'Unassigned',
-              technicianId: setupData.technicianId ? String(setupData.technicianId) : undefined
-            });
-          } catch (e) {
-            console.error("Error loading audit:", key, e);
+          const auditId = key.replace('setup_', '');
+          
+          const trackerKey = `defect_registry_${auditId}`;
+          const trackerRaw = localStorage.getItem(trackerKey);
+          if (trackerRaw) {
+            const tracker = JSON.parse(trackerRaw);
+            defectCount += Object.values(tracker).filter((d: any) => d.status !== 'Rectified').length;
           }
+
+          const checklistKey = `checklist_${auditId}`;
+          const checklistData = localStorage.getItem(checklistKey);
+          let itemsCompleted = 0;
+          if (checklistData) {
+            try {
+              const parsed = JSON.parse(checklistData);
+              itemsCompleted = Object.keys(parsed).filter(k => k !== 'panelSpecs' && k !== 'isNA').length;
+            } catch { itemsCompleted = 0; }
+          }
+
+          audits.push({
+            id: auditId,
+            title: setupData.clientName || 'Draft Inspection',
+            location: setupData.location || 'Location Not Set',
+            date: setupData.date || 'No Date',
+            status: setupData.status || InspectionStatus.DRAFT,
+            itemsCompleted: itemsCompleted,
+            totalItems: 13,
+            technician: setupData.techName || 'Unassigned',
+            technicianId: setupData.technicianId ? String(setupData.technicianId) : undefined
+          });
+        } catch (e) {
+          console.error("Error loading audit:", key, e);
         }
-      });
+      }
+    });
 
-      const filtered = audits.filter(a => {
-        if (isSupervisor) return true;
-        return String(a.technicianId) === String(currentUser?.id);
-      });
+    const filtered = audits.filter(a => {
+      if (isSupervisor) return true;
+      return String(a.technicianId) === String(currentUser?.id);
+    });
 
-      setLocalAudits(filtered.sort((a, b) => b.id.localeCompare(a.id)));
-      setTotalOpenDefects(defectCount);
-    };
+    setLocalAudits(filtered.sort((a, b) => b.id.localeCompare(a.id)));
+    setTotalOpenDefects(defectCount);
+  };
 
+  useEffect(() => {
     loadAudits();
   }, [currentUser, isSupervisor, refreshTrigger]);
 
-  // Overdue Reminders Logic
-  useEffect(() => {
-    if (localAudits.length > 0) {
-      const today = new Date().toISOString().split('T')[0];
-      const overdue = localAudits.filter(a => a.status === InspectionStatus.DRAFT && a.date < today);
-      
-      const hasAlertedKey = `alert_overdue_${today}`;
-      const alreadyAlerted = sessionStorage.getItem(hasAlertedKey);
-
-      if (overdue.length > 0 && !alreadyAlerted) {
+  const handleApproveJob = (e: React.MouseEvent, auditId: string) => {
+    // CRITICAL: Stop propagation completely to avoid card navigation
+    e.stopPropagation();
+    e.preventDefault();
+    
+    if (window.confirm(`PENGESAHAN: Anda akan menukar status #${auditId} kepada COMPLETED (APPROVED). Teruskan?`)) {
+      const key = `setup_${auditId}`;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const data = JSON.parse(saved);
+        data.status = InspectionStatus.APPROVED;
+        localStorage.setItem(key, JSON.stringify(data));
+        
+        // Trigger re-render
+        setRefreshTrigger(prev => prev + 1);
         sendLocalNotification(
-          "Task Overdue Reminder",
-          `Alert: You have ${overdue.length} pending maintenance reports past their scheduled date. Please prioritize completion.`
+          "Audit Completed", 
+          `Laporan #${auditId} telah disahkan oleh ${currentUser.name}.`
         );
-        sessionStorage.setItem(hasAlertedKey, 'true');
       }
     }
-  }, [localAudits]);
+  };
 
   const [assignForm, setAssignForm] = useState({
     clientName: '',
@@ -135,13 +139,13 @@ const Dashboard: React.FC = () => {
 
   const handleSync = () => {
     if (pendingSyncCount === 0) {
-      alert("System Status: All reports are synchronized.");
+      alert("Sistem: Semua laporan telah diselaraskan.");
       return;
     }
     setIsSyncing(true);
     setTimeout(() => {
       setIsSyncing(false);
-      alert(`Success: ${pendingSyncCount} reports synced to cloud.`);
+      alert(`Berjaya: ${pendingSyncCount} laporan dihantar ke awan.`);
       setRefreshTrigger(prev => prev + 1);
     }, 1500);
   };
@@ -154,7 +158,7 @@ const Dashboard: React.FC = () => {
   const handleAssignJob = (e: React.FormEvent) => {
     e.preventDefault();
     if (!assignForm.clientName || !assignForm.techId) {
-      alert("Action Denied: Required fields are missing.");
+      alert("Ralat: Sila isi semua maklumat.");
       return;
     }
 
@@ -177,7 +181,7 @@ const Dashboard: React.FC = () => {
       setAssignForm({ clientName: '', location: '', techId: '', date: new Date().toISOString().split('T')[0] });
       setRefreshTrigger(prev => prev + 1);
     } catch (err) {
-      alert("System Error: Storage capacity reached.");
+      alert("Ralat sistem: Memori penuh.");
     }
   };
 
@@ -185,7 +189,8 @@ const Dashboard: React.FC = () => {
     switch(status) {
       case InspectionStatus.PENDING_SYNC: return 'text-amber-500 bg-amber-500/10 border-amber-500/20';
       case InspectionStatus.SUBMITTED: return 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
-      case InspectionStatus.DRAFT: return 'text-blue-400 bg-blue-400/10 border-blue-400/20';
+      case InspectionStatus.APPROVED: return 'text-blue-600 bg-blue-600/10 border-blue-600/20';
+      case InspectionStatus.DRAFT: return 'text-slate-400 bg-slate-400/10 border-slate-400/20';
       default: return 'text-slate-400 bg-slate-400/10 border-slate-400/20';
     }
   };
@@ -199,9 +204,15 @@ const Dashboard: React.FC = () => {
       <div className="p-4 flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold italic tracking-tight uppercase">SYSTEMS ACTIVE,</h1>
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-2xl font-bold italic tracking-tight uppercase">SYSTEMS ACTIVE,</h1>
+              {/* Role Badge - To verify if user is really recognized as Supervisor */}
+              <div className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${isSupervisor ? 'bg-primary text-white' : 'bg-slate-700 text-slate-300'}`}>
+                {currentUser.role}
+              </div>
+            </div>
             <p className="text-text-muted font-black text-xs uppercase tracking-[0.2em] -mt-1">
-              {currentUser.name} • <span className="text-primary">{currentUser.role}</span>
+              {currentUser.name} • <span className="text-primary">ID: {currentUser.id}</span>
             </p>
           </div>
           <div 
@@ -213,10 +224,9 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Core Stats Row */}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-surface-dark p-4 rounded-2xl border border-white/5 flex flex-col gap-1 shadow-xl">
-            <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">{isSupervisor ? 'Team Tasks' : 'My Queue'}</span>
+            <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">{isSupervisor ? 'Team Pending' : 'My Queue'}</span>
             <div className="flex items-end justify-between">
               <span className={`text-3xl font-black ${pendingSyncCount > 0 ? 'text-amber-500' : 'text-text-muted'}`}>
                 {pendingSyncCount.toString().padStart(2, '0')}
@@ -235,7 +245,6 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Standalone Defect Report Module */}
         <div 
           onClick={() => navigate('/inspections')}
           className="bg-primary/5 p-6 rounded-3xl border border-primary/20 flex items-center justify-between shadow-2xl active:scale-[0.98] transition-all cursor-pointer overflow-hidden relative group"
@@ -265,12 +274,12 @@ const Dashboard: React.FC = () => {
               <div 
                 key={insp.id}
                 onClick={() => navigate(`/inspection-cover/${insp.id}`)}
-                className="bg-surface-dark p-4 rounded-2xl border border-white/5 flex flex-col gap-3 active:scale-[0.98] transition-all cursor-pointer group shadow-lg hover:border-white/10"
+                className={`bg-surface-dark p-4 rounded-2xl border flex flex-col gap-3 active:scale-[0.98] transition-all cursor-pointer group shadow-lg hover:border-white/10 ${insp.status === InspectionStatus.APPROVED ? 'border-emerald-500/40 bg-emerald-500/5' : 'border-white/5'}`}
               >
                 <div className="flex justify-between items-start">
                   <div className="flex gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-xl bg-background-dark flex items-center justify-center text-primary shrink-0">
-                      <span className="material-symbols-outlined text-xl">corporate_fare</span>
+                    <div className={`w-10 h-10 rounded-xl bg-background-dark flex items-center justify-center shrink-0 ${insp.status === InspectionStatus.APPROVED ? 'text-emerald-500' : 'text-primary'}`}>
+                      <span className="material-symbols-outlined text-xl">{insp.status === InspectionStatus.APPROVED ? 'verified' : 'corporate_fare'}</span>
                     </div>
                     <div className="min-w-0">
                       <h4 className="font-bold text-sm truncate uppercase tracking-tight">{insp.title}</h4>
@@ -281,22 +290,35 @@ const Dashboard: React.FC = () => {
                     {insp.status}
                   </div>
                 </div>
-                <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                
+                <div className="flex items-center justify-between pt-2 border-t border-white/5 relative h-10">
                   <div className="flex items-center gap-2">
                     <span className="text-[8px] font-black text-text-muted uppercase tracking-widest">
                       {isSupervisor ? `Assignee: ${insp.technician}` : `Audit ID: ${insp.id}`}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1 text-primary text-[10px] font-black uppercase tracking-widest group-hover:translate-x-1 transition-transform">
-                    {insp.status === InspectionStatus.DRAFT ? 'Continue' : 'Review'}
-                    <span className="material-symbols-outlined text-sm">chevron_right</span>
+                  
+                  {/* BUTTON ACTION CONTAINER */}
+                  <div className="flex items-center gap-2 relative z-30">
+                    {isSupervisor && insp.status !== InspectionStatus.APPROVED && (
+                      <button 
+                        onClick={(e) => handleApproveJob(e, insp.id)}
+                        className="h-8 px-4 bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 active:scale-90 transition-all flex items-center gap-1.5 shadow-[0_5px_15px_rgba(16,185,129,0.3)] border border-emerald-400/30"
+                      >
+                         Certify <span className="material-symbols-outlined text-[12px]">verified</span>
+                      </button>
+                    )}
+                    <div className="flex items-center gap-1 text-primary text-[10px] font-black uppercase tracking-widest group-hover:translate-x-1 transition-transform">
+                      {insp.status === InspectionStatus.DRAFT ? 'Continue' : 'Review'}
+                      <span className="material-symbols-outlined text-sm">chevron_right</span>
+                    </div>
                   </div>
                 </div>
               </div>
             )) : (
               <div className="py-16 text-center bg-surface-dark/40 rounded-3xl border border-dashed border-white/5 flex flex-col items-center justify-center opacity-30">
                 <span className="material-symbols-outlined text-4xl mb-3">inventory_2</span>
-                <p className="text-[9px] font-black uppercase tracking-[0.3em]">No jobs found in registry</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.3em]">Registry Empty</p>
               </div>
             )}
           </div>
@@ -311,6 +333,7 @@ const Dashboard: React.FC = () => {
         <span className="text-[7px] font-black uppercase tracking-widest">{isSupervisor ? 'Dispatch' : 'New'}</span>
       </button>
 
+      {/* Modal Dispatch Job */}
       {showAssignModal && (
         <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-end justify-center animate-in slide-in-from-bottom duration-300">
           <div className="bg-surface-dark w-full max-w-md rounded-t-[40px] border-t border-white/10 p-8 flex flex-col gap-6 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar">
@@ -326,37 +349,26 @@ const Dashboard: React.FC = () => {
 
             <form onSubmit={handleAssignJob} className="flex flex-col gap-4 pb-10">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Building / Project Name</label>
+                <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Building Name</label>
                 <input 
                   type="text" 
                   required
                   value={assignForm.clientName}
                   onChange={(e) => setAssignForm({...assignForm, clientName: e.target.value})}
                   className="bg-background-dark/50 border-white/5 border rounded-2xl h-14 px-5 text-sm font-bold focus:ring-1 focus:ring-primary text-white"
-                  placeholder="e.g. Petronas Twin Towers"
+                  placeholder="e.g. Wisma Bestro"
                 />
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Site Location</label>
-                <input 
-                  type="text" 
-                  value={assignForm.location}
-                  onChange={(e) => setAssignForm({...assignForm, location: e.target.value})}
-                  className="bg-background-dark/50 border-white/5 border rounded-2xl h-14 px-5 text-sm font-bold focus:ring-1 focus:ring-primary text-white"
-                  placeholder="e.g. KLCC, Kuala Lumpur"
-                />
-              </div>
-
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Select Field Technician</label>
+                <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Select Field Tech</label>
                 <select 
                   required
                   value={assignForm.techId}
                   onChange={(e) => setAssignForm({...assignForm, techId: e.target.value})}
                   className="bg-background-dark/50 border-white/5 border rounded-2xl h-14 px-5 text-sm font-bold focus:ring-1 focus:ring-primary text-white appearance-none"
                 >
-                  <option value="" className="bg-surface-dark">Select Resource...</option>
+                  <option value="" className="bg-surface-dark">Choose Technician...</option>
                   {allUsers.filter(u => u.role === 'Technician').map(u => (
                     <option key={u.id} value={u.id} className="bg-surface-dark">
                       {u.name} (ID: {u.id})
@@ -369,7 +381,7 @@ const Dashboard: React.FC = () => {
                 type="submit"
                 className="w-full h-14 bg-primary text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-xl active:scale-[0.98] transition-all mt-4 border border-white/10"
               >
-                Dispatch Job Now
+                Confirm Dispatch
               </button>
             </form>
           </div>

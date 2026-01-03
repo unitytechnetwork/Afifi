@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import TopBar from '../components/TopBar';
 import BottomNav from '../components/BottomNav';
 import { MOCK_USER } from '../constants';
+import { sendLocalNotification } from '../components/NotificationManager';
 
 interface SettingsProps {
   onLogout: () => void;
@@ -47,6 +48,27 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
     const newVal = !notifications;
     setNotifications(newVal);
     localStorage.setItem('app_notifications_enabled', JSON.stringify(newVal));
+    
+    if (newVal && "Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  };
+
+  const handleTestNotification = () => {
+    if (!("Notification" in window)) {
+      alert("Browser anda tidak menyokong notifikasi.");
+      return;
+    }
+
+    if (Notification.permission === "denied") {
+      alert("Akses notifikasi telah disekat (Blocked). Sila benarkan akses dalam tetapan browser anda.");
+      return;
+    }
+
+    sendLocalNotification(
+      "Bestro System Test",
+      "Sistem notifikasi Bestro Engineering berfungsi dengan sempurna! Unit sedia untuk operasi."
+    );
   };
 
   const handleSync = () => {
@@ -263,15 +285,23 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
                   </div>
                   <span className="text-xs font-bold uppercase tracking-tight">Push Notifications</span>
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    className="sr-only peer" 
-                    checked={notifications} 
-                    onChange={handleNotificationToggle}
-                  />
-                  <div className="w-10 h-5 bg-background-dark peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                </label>
+                <div className="flex items-center gap-3">
+                  <button 
+                    onClick={handleTestNotification}
+                    className="px-2 py-1 bg-white/5 rounded text-[8px] font-black uppercase text-text-muted hover:text-white"
+                  >
+                    Send Test
+                  </button>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      className="sr-only peer" 
+                      checked={notifications} 
+                      onChange={handleNotificationToggle}
+                    />
+                    <div className="w-10 h-5 bg-background-dark peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-5 peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+                  </label>
+                </div>
               </div>
 
               <button 

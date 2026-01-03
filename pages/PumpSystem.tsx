@@ -18,6 +18,8 @@ interface PumpComponent {
 }
 
 interface PumpData {
+  id: string;
+  systemName: string;
   location: string;
   systemDescription: string;
   systemOverallStatus: 'Normal' | 'Faulty' | 'Partial' | 'N/A';
@@ -57,86 +59,173 @@ const PumpSystem: React.FC = () => {
   const auditId = id || 'NEW-AUDIT';
   const pumpType = type || 'hosereel';
   const isHoseReel = pumpType.toLowerCase().includes('hosereel');
+  const isHydrant = pumpType.toLowerCase().includes('hydrant');
+  const isWetRiser = pumpType.toLowerCase().includes('wetriser');
+  const isSprinkler = pumpType.toLowerCase().includes('sprinkler');
 
-  const getBaseDefaults = (): PumpData => ({
-    location: '',
-    systemDescription: `${pumpType.toUpperCase()} Pump System verification and performance test.`,
-    systemOverallStatus: 'Normal',
-    headerPressure: '7.0',
-    tankLevel: 'Full',
-    dutyUnit: { label: 'Duty Pump', type: 'Electric', mode: 'Auto', status: 'Normal', loadValue: '15.5', cutIn: '6.0', cutOut: '8.0', remarks: '' },
-    standbyUnit: { label: 'Standby Pump', type: 'Diesel', mode: 'Auto', status: 'Normal', loadValue: '100', cutIn: '5.5', cutOut: '8.0', batteryVolt: '12.6', chargerVolt: '13.8', remarks: '' },
-    jockeyRating: '1.5HP / 1.1kW',
-    motorRating: '15HP / 11kW',
-    engineRating: '25HP',
-    pumpVibration: 'Normal',
-    pumpNoise: 'Normal',
-    glandPacking: 'Normal',
-    pumpCondition: 'Normal',
-    valveCondition: 'Normal',
-    panelIncomingVolt: '415',
-    panelLampsStatus: 'Normal',
-    panelLampsPhoto: '',
-    panelLampsRemarks: '',
-    panelWiringStatus: 'Normal',
-    panelWiringPhoto: '',
-    panelWiringRemarks: '',
-    selectorSwitchStatus: 'Normal',
-    selectorSwitchPhoto: '',
-    selectorSwitchRemarks: '',
-    generalRemarks: '',
-    overallRemarks: '',
-    photos: ['', '', '', ''],
-    servicePhotos: ['', '', '', '']
-  });
+  const getBaseDefaults = (index: number): PumpData => {
+    const defaultDesc = isHoseReel 
+      ? 'The hose reel pump system is provided to supply water for first-aid firefighting purposes. The system comprises jockey, duty, and standby pumps. Inspection was conducted to verify pump operation, pressure performance, control settings, and operational readiness.'
+      : isHydrant
+      ? 'The hydrant pump system is designed to supply water to the external and internal fire hydrant network during fire emergencies. Inspection was carried out to verify pump operation, pressure performance, and control system functionality in accordance with routine service maintenance.'
+      : isWetRiser
+      ? 'The wet and dry riser systems are installed to provide firefighting water supply at various floor levels. Inspection was conducted to verify system condition, accessibility, and operational readiness as part of routine maintenance procedures.'
+      : isSprinkler
+      ? 'The pump system is designed to supply adequate water pressure to the fire protection system during emergency conditions. The system consists of jockey, duty, and standby pumps. Inspection was carried out to verify pump operation, pressure readings, control settings, and overall system readiness.'
+      : `${pumpType.toUpperCase()} Pump System verification and performance test.`;
 
-  const [data, setData] = useState<PumpData>(() => {
+    return {
+      id: Date.now().toString() + index,
+      systemName: index === 0 ? 'Main Pump Set' : `Pump Set ${index + 1}`,
+      location: '',
+      systemDescription: defaultDesc,
+      systemOverallStatus: 'Normal',
+      headerPressure: '7.0',
+      tankLevel: 'Full',
+      dutyUnit: { label: 'Duty Pump', type: 'Electric', mode: 'Auto', status: 'Normal', loadValue: '15.5', cutIn: '6.0', cutOut: '8.0', remarks: '' },
+      standbyUnit: { label: 'Standby Pump', type: 'Diesel', mode: 'Auto', status: 'Normal', loadValue: '100', cutIn: '5.5', cutOut: '8.0', batteryVolt: '12.6', chargerVolt: '13.8', remarks: '' },
+      jockeyRating: '1.5HP / 1.1kW',
+      motorRating: '15HP / 11kW',
+      engineRating: '25HP',
+      pumpVibration: 'Normal',
+      pumpNoise: 'Normal',
+      glandPacking: 'Normal',
+      pumpCondition: 'Normal',
+      valveCondition: 'Normal',
+      panelIncomingVolt: '415',
+      panelLampsStatus: 'Normal',
+      panelLampsPhoto: '',
+      panelLampsRemarks: '',
+      panelWiringStatus: 'Normal',
+      panelWiringPhoto: '',
+      panelWiringRemarks: '',
+      selectorSwitchStatus: 'Normal',
+      selectorSwitchPhoto: '',
+      selectorSwitchRemarks: '',
+      generalRemarks: '',
+      overallRemarks: '',
+      photos: ['', '', '', ''],
+      servicePhotos: ['', '', '', '']
+    };
+  };
+
+  const [systems, setSystems] = useState<PumpData[]>(() => {
     const saved = localStorage.getItem(`pump_${pumpType}_${auditId}`);
-    const defaults = getBaseDefaults();
+    const firstDefault = getBaseDefaults(0);
     if (!isHoseReel) {
-      defaults.jockeyUnit = { label: 'Jockey Pump', type: 'Electric', mode: 'Auto', status: 'Normal', loadValue: '1.2', cutIn: '7.5', cutOut: '8.5', remarks: '' };
+      firstDefault.jockeyUnit = { label: 'Jockey Pump', type: 'Electric', mode: 'Auto', status: 'Normal', loadValue: '1.2', cutIn: '7.5', cutOut: '8.5', remarks: '' };
     }
 
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        return {
-          ...defaults,
-          ...parsed,
-          dutyUnit: { ...defaults.dutyUnit, ...parsed.dutyUnit },
-          standbyUnit: { ...defaults.standbyUnit, ...parsed.standbyUnit },
-          jockeyUnit: parsed.jockeyUnit ? { ...defaults.jockeyUnit, ...parsed.jockeyUnit } : defaults.jockeyUnit,
-          servicePhotos: parsed.servicePhotos || ['', '', '', '']
-        };
+        // Handle migration from single object to array
+        if (parsed && !Array.isArray(parsed) && parsed.dutyUnit) {
+          return [{
+            ...firstDefault,
+            ...parsed,
+            id: 'legacy-pump-1',
+            systemName: 'Main Pump Set'
+          }];
+        }
+        if (Array.isArray(parsed)) return parsed;
       } catch (e) { console.error(e); }
     }
-    return defaults;
+    return [firstDefault];
   });
 
+  const [activeSystemId, setActiveSystemId] = useState<string>(systems[0]?.id || '');
+  const activeSystem = systems.find(s => s.id === activeSystemId);
+
   useEffect(() => {
-    localStorage.setItem(`pump_${pumpType}_${auditId}`, JSON.stringify(data));
-  }, [data, auditId, pumpType]);
+    localStorage.setItem(`pump_${pumpType}_${auditId}`, JSON.stringify(systems));
+  }, [systems, auditId, pumpType]);
+
+  const updateActiveSystem = (updates: Partial<PumpData>) => {
+    setSystems(prev => prev.map(s => s.id === activeSystemId ? { ...s, ...updates } : s));
+  };
 
   const updateUnit = (key: 'jockeyUnit' | 'dutyUnit' | 'standbyUnit', updates: Partial<PumpComponent>) => {
-    setData(prev => {
-      const currentUnit = prev[key];
-      if (!currentUnit) return prev;
-      return { ...prev, [key]: { ...currentUnit, ...updates } };
-    });
+    if (!activeSystem) return;
+    const currentUnit = activeSystem[key];
+    if (!currentUnit) return;
+    updateActiveSystem({ [key]: { ...currentUnit, ...updates } });
   };
+
+  const addNewPumpSet = () => {
+    const nextIdx = systems.length;
+    const newSys = getBaseDefaults(nextIdx);
+    if (!isHoseReel) {
+      newSys.jockeyUnit = { label: 'Jockey Pump', type: 'Electric', mode: 'Auto', status: 'Normal', loadValue: '1.2', cutIn: '7.5', cutOut: '8.5', remarks: '' };
+    }
+    setSystems([...systems, newSys]);
+    setActiveSystemId(newSys.id);
+  };
+
+  const deletePumpSet = (e: React.MouseEvent, pumpId: string) => {
+    e.stopPropagation();
+    if (systems.length <= 1) return;
+    if (window.confirm("Confirm: Remove this pump checksheet?")) {
+      const newSystems = systems.filter(s => s.id !== pumpId);
+      setSystems(newSystems);
+      if (activeSystemId === pumpId) {
+        setActiveSystemId(newSystems[0].id);
+      }
+    }
+  };
+
+  if (!activeSystem) return null;
 
   return (
     <div className="flex flex-col h-full bg-background-dark overflow-y-auto no-scrollbar pb-32">
       <TopBar title={`${pumpType.toUpperCase()} SYSTEM`} subtitle={`REF: ${auditId}`} showBack />
+      
       <div className="p-4 flex flex-col gap-6 animate-in fade-in duration-500">
         
+        {/* Pump Set Selector Bar */}
+        <section className="bg-surface-dark p-2 rounded-2xl border border-white/5 flex gap-2 overflow-x-auto no-scrollbar">
+           {systems.map((s, idx) => (
+              <div key={s.id} className="relative group flex-shrink-0">
+                <button 
+                  onClick={() => setActiveSystemId(s.id)} 
+                  className={`px-5 h-11 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 pr-10 ${activeSystemId === s.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-background-dark/50 text-text-muted hover:bg-white/5'}`}
+                >
+                   <span className="material-symbols-outlined text-sm">water_pump</span>
+                   {s.systemName || `Pump Set ${idx + 1}`}
+                </button>
+                {systems.length > 1 && (
+                  <button 
+                    onClick={(e) => deletePumpSet(e, s.id)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-white/20 hover:text-primary transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-xs">close</span>
+                  </button>
+                )}
+              </div>
+           ))}
+           <button onClick={addNewPumpSet} className="flex-shrink-0 px-4 h-11 rounded-xl bg-white/5 border border-white/10 text-primary flex items-center justify-center active:scale-95">
+              <span className="material-symbols-outlined">add</span>
+           </button>
+        </section>
+
         {/* Audit Grade System Header */}
         <section className="bg-primary/10 border border-primary/20 p-5 rounded-2xl flex flex-col gap-4">
            <div className="flex justify-between items-center border-b border-primary/20 pb-3">
-              <h3 className="text-[11px] font-black uppercase text-white tracking-widest italic">System Audit Profile</h3>
+              <div className="flex flex-col">
+                <h3 className="text-[11px] font-black uppercase text-white tracking-widest italic">System Audit Profile</h3>
+                <input 
+                  value={activeSystem.systemName} 
+                  onChange={(e) => updateActiveSystem({ systemName: e.target.value })}
+                  className="bg-transparent border-none p-0 text-[10px] font-black text-primary uppercase focus:ring-0"
+                  placeholder="PUMP IDENTIFIER"
+                />
+              </div>
               <div className="flex items-center gap-2">
-                 <span className="text-[8px] font-black text-text-muted uppercase">Overall Status:</span>
-                 <select value={data.systemOverallStatus} onChange={(e) => setData({...data, systemOverallStatus: e.target.value as any})} className={`px-2 h-6 rounded text-[8px] font-black border uppercase transition-all ${data.systemOverallStatus === 'Normal' ? 'bg-emerald-600/20 border-emerald-600 text-emerald-500' : 'bg-primary/20 border-primary text-primary'}`}>
+                 <select 
+                   value={activeSystem.systemOverallStatus} 
+                   onChange={(e) => updateActiveSystem({ systemOverallStatus: e.target.value as any })} 
+                   className={`px-2 h-6 rounded text-[8px] font-black border uppercase transition-all ${activeSystem.systemOverallStatus === 'Normal' ? 'bg-emerald-600/20 border-emerald-600 text-emerald-500' : 'bg-primary/20 border-primary text-primary'}`}
+                 >
                     <option value="Normal">Normal</option>
                     <option value="Faulty">Faulty</option>
                     <option value="Partial">Partial</option>
@@ -149,8 +238,8 @@ const PumpSystem: React.FC = () => {
               <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Pump Room Location</label>
               <input 
                 type="text" 
-                value={data.location} 
-                onChange={(e) => setData({...data, location: e.target.value})} 
+                value={activeSystem.location} 
+                onChange={(e) => updateActiveSystem({ location: e.target.value })} 
                 className="bg-background-dark/50 border-white/5 border rounded-xl h-11 px-4 text-sm font-bold text-white focus:ring-1 focus:ring-primary" 
                 placeholder="e.g. Basement 1, Level G..." 
               />
@@ -158,7 +247,7 @@ const PumpSystem: React.FC = () => {
 
            <div className="flex flex-col gap-1.5">
               <label className="text-[9px] font-black text-text-muted uppercase tracking-widest">Technical Description</label>
-              <textarea value={data.systemDescription} onChange={(e) => setData({...data, systemDescription: e.target.value})} className="bg-background-dark/50 border-white/5 border rounded-xl p-3 text-xs font-medium text-white h-20 focus:ring-1 focus:ring-primary" placeholder="Technical summary of the pump system..." />
+              <textarea value={activeSystem.systemDescription} onChange={(e) => updateActiveSystem({ systemDescription: e.target.value })} className="bg-background-dark/50 border-white/5 border rounded-xl p-3 text-xs font-medium text-white h-20 focus:ring-1 focus:ring-primary" placeholder="Technical summary of the pump system..." />
            </div>
         </section>
 
@@ -166,8 +255,8 @@ const PumpSystem: React.FC = () => {
         <section className="bg-surface-dark p-5 rounded-2xl border border-white/5 shadow-xl">
            <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3"><span className="material-symbols-outlined text-primary text-sm">speed</span><h3 className="text-[10px] font-black uppercase tracking-widest text-text-muted italic">Part I: Line Metrics</h3></div>
            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5"><label className="text-[8px] font-black text-text-muted uppercase tracking-widest ml-1">Header (Bar)</label><input type="text" value={data.headerPressure} onChange={(e) => setData({...data, headerPressure: e.target.value})} className="bg-background-dark/50 border-none rounded-xl h-11 px-4 text-sm font-black text-emerald-500" /></div>
-              <div className="flex flex-col gap-1.5"><label className="text-[8px] font-black text-text-muted uppercase tracking-widest ml-1">Tank Level</label><select value={data.tankLevel} onChange={(e) => setData({...data, tankLevel: e.target.value})} className="bg-background-dark/50 border-none rounded-xl h-11 px-4 text-xs font-bold text-white"><option>Full</option><option>75%</option><option>50%</option><option>Low</option><option>Empty</option></select></div>
+              <div className="flex flex-col gap-1.5"><label className="text-[8px] font-black text-text-muted uppercase tracking-widest ml-1">Header (Bar)</label><input type="text" value={activeSystem.headerPressure} onChange={(e) => updateActiveSystem({ headerPressure: e.target.value })} className="bg-background-dark/50 border-none rounded-xl h-11 px-4 text-sm font-black text-emerald-500" /></div>
+              <div className="flex flex-col gap-1.5"><label className="text-[8px] font-black text-text-muted uppercase tracking-widest ml-1">Tank Level</label><select value={activeSystem.tankLevel} onChange={(e) => updateActiveSystem({ tankLevel: e.target.value })} className="bg-background-dark/50 border-none rounded-xl h-11 px-4 text-xs font-bold text-white"><option>Full</option><option>75%</option><option>50%</option><option>Low</option><option>Empty</option></select></div>
            </div>
         </section>
 
@@ -175,9 +264,9 @@ const PumpSystem: React.FC = () => {
         <section className="bg-surface-dark p-5 rounded-2xl border border-white/5 shadow-xl">
            <div className="flex items-center gap-2 mb-4 border-b border-white/5 pb-3"><span className="material-symbols-outlined text-primary text-sm">hub</span><h3 className="text-[10px] font-black uppercase tracking-widest text-text-muted italic">Part II: Pump Registry</h3></div>
            <div className="flex flex-col gap-4">
-              {!isHoseReel && data.jockeyUnit && <PumpUnitRow component={data.jockeyUnit} onUpdate={(upd) => updateUnit('jockeyUnit', upd)} />}
-              {data.dutyUnit && <PumpUnitRow component={data.dutyUnit} onUpdate={(upd) => updateUnit('dutyUnit', upd)} />}
-              {data.standbyUnit && <PumpUnitRow component={data.standbyUnit} onUpdate={(upd) => updateUnit('standbyUnit', upd)} isStandby />}
+              {!isHoseReel && activeSystem.jockeyUnit && <PumpUnitRow component={activeSystem.jockeyUnit} onUpdate={(upd) => updateUnit('jockeyUnit', upd)} />}
+              {activeSystem.dutyUnit && <PumpUnitRow component={activeSystem.dutyUnit} onUpdate={(upd) => updateUnit('dutyUnit', upd)} />}
+              {activeSystem.standbyUnit && <PumpUnitRow component={activeSystem.standbyUnit} onUpdate={(upd) => updateUnit('standbyUnit', upd)} isStandby />}
            </div>
         </section>
 
@@ -194,7 +283,7 @@ const PumpSystem: React.FC = () => {
               ].map(item => (
                 <div key={item.key} className="flex items-center justify-between bg-background-dark/30 p-3 rounded-xl border border-white/5">
                    <span className="text-[9px] font-bold uppercase text-white">{item.label}</span>
-                   <div className="flex gap-1">{item.opt.map(o => (<button key={o} onClick={() => setData({...data, [item.key]: o} as any)} className={`px-3 py-1 rounded-md text-[7px] font-black uppercase ${data[item.key as keyof PumpData] === o ? (o === 'Normal' ? 'bg-emerald-600' : 'bg-primary') + ' text-white' : 'bg-background-dark/50 text-text-muted'}`}>{o}</button>))}</div>
+                   <div className="flex gap-1">{item.opt.map(o => (<button key={o} onClick={() => updateActiveSystem({ [item.key]: o } as any)} className={`px-3 py-1 rounded-md text-[7px] font-black uppercase ${activeSystem[item.key as keyof PumpData] === o ? (o === 'Normal' ? 'bg-emerald-600' : 'bg-primary') + ' text-white' : 'bg-background-dark/50 text-text-muted'}`}>{o}</button>))}</div>
                 </div>
               ))}
            </div>
@@ -213,8 +302,8 @@ const PumpSystem: React.FC = () => {
                  <span className="text-[9px] font-bold uppercase text-white">Incoming Volt (V)</span>
                  <input 
                    type="text" 
-                   value={data.panelIncomingVolt} 
-                   onChange={(e) => setData({...data, panelIncomingVolt: e.target.value})} 
+                   value={activeSystem.panelIncomingVolt} 
+                   onChange={(e) => updateActiveSystem({ panelIncomingVolt: e.target.value })} 
                    className="w-20 bg-background-dark/50 border-none rounded-lg h-8 text-center text-xs font-black text-blue-400" 
                    placeholder="415"
                  />
@@ -226,16 +315,16 @@ const PumpSystem: React.FC = () => {
                     <span className="text-[9px] font-bold uppercase text-white">Indicator Lamps</span>
                     <div className="flex gap-1">
                        {['Normal', 'Fault'].map(o => (
-                          <button key={o} onClick={() => setData({...data, panelLampsStatus: o as any})} className={`px-3 py-1 rounded-md text-[7px] font-black uppercase ${data.panelLampsStatus === o ? (o === 'Normal' ? 'bg-emerald-600' : 'bg-primary') + ' text-white' : 'bg-background-dark/50 text-text-muted'}`}>{o}</button>
+                          <button key={o} onClick={() => updateActiveSystem({ panelLampsStatus: o as any })} className={`px-3 py-1 rounded-md text-[7px] font-black uppercase ${activeSystem.panelLampsStatus === o ? (o === 'Normal' ? 'bg-emerald-600' : 'bg-primary') + ' text-white' : 'bg-background-dark/50 text-text-muted'}`}>{o}</button>
                        ))}
                     </div>
                  </div>
-                 {data.panelLampsStatus === 'Fault' && (
+                 {activeSystem.panelLampsStatus === 'Fault' && (
                     <div className="flex gap-2 mt-1 animate-in slide-in-from-top duration-300">
-                       <PhotoCaptureBox photo={data.panelLampsPhoto} onCapture={(p) => setData({...data, panelLampsPhoto: p})} />
+                       <PhotoCaptureBox photo={activeSystem.panelLampsPhoto} onCapture={(p) => updateActiveSystem({ panelLampsPhoto: p })} />
                        <textarea 
-                         value={data.panelLampsRemarks} 
-                         onChange={(e) => setData({...data, panelLampsRemarks: e.target.value})} 
+                         value={activeSystem.panelLampsRemarks} 
+                         onChange={(e) => updateActiveSystem({ panelLampsRemarks: e.target.value })} 
                          className="flex-1 bg-background-dark/50 border-none rounded-lg p-2 text-[8px] text-white italic h-16" 
                          placeholder="Lamp fault details..." 
                        />
@@ -249,16 +338,16 @@ const PumpSystem: React.FC = () => {
                     <span className="text-[9px] font-bold uppercase text-white">Wiring Condition</span>
                     <div className="flex gap-1">
                        {['Normal', 'Fault'].map(o => (
-                          <button key={o} onClick={() => setData({...data, panelWiringStatus: o as any})} className={`px-3 py-1 rounded-md text-[7px] font-black uppercase ${data.panelWiringStatus === o ? (o === 'Normal' ? 'bg-emerald-600' : 'bg-primary') + ' text-white' : 'bg-background-dark/50 text-text-muted'}`}>{o}</button>
+                          <button key={o} onClick={() => updateActiveSystem({ panelWiringStatus: o as any })} className={`px-3 py-1 rounded-md text-[7px] font-black uppercase ${activeSystem.panelWiringStatus === o ? (o === 'Normal' ? 'bg-emerald-600' : 'bg-primary') + ' text-white' : 'bg-background-dark/50 text-text-muted'}`}>{o}</button>
                        ))}
                     </div>
                  </div>
-                 {data.panelWiringStatus === 'Fault' && (
+                 {activeSystem.panelWiringStatus === 'Fault' && (
                     <div className="flex gap-2 mt-1 animate-in slide-in-from-top duration-300">
-                       <PhotoCaptureBox photo={data.panelWiringPhoto} onCapture={(p) => setData({...data, panelWiringPhoto: p})} />
+                       <PhotoCaptureBox photo={activeSystem.panelWiringPhoto} onCapture={(p) => updateActiveSystem({ panelWiringPhoto: p })} />
                        <textarea 
-                         value={data.panelWiringRemarks} 
-                         onChange={(e) => setData({...data, panelWiringRemarks: e.target.value})} 
+                         value={activeSystem.panelWiringRemarks} 
+                         onChange={(e) => updateActiveSystem({ panelWiringRemarks: e.target.value })} 
                          className="flex-1 bg-background-dark/50 border-none rounded-lg p-2 text-[8px] text-white italic h-16" 
                          placeholder="Wiring issue details..." 
                        />
@@ -272,16 +361,16 @@ const PumpSystem: React.FC = () => {
                     <span className="text-[9px] font-bold uppercase text-white">Selector Switch</span>
                     <div className="flex gap-1">
                        {['Normal', 'Fault'].map(o => (
-                          <button key={o} onClick={() => setData({...data, selectorSwitchStatus: o as any})} className={`px-3 py-1 rounded-md text-[7px] font-black uppercase ${data.selectorSwitchStatus === o ? (o === 'Normal' ? 'bg-emerald-600' : 'bg-primary') + ' text-white' : 'bg-background-dark/50 text-text-muted'}`}>{o}</button>
+                          <button key={o} onClick={() => updateActiveSystem({ selectorSwitchStatus: o as any })} className={`px-3 py-1 rounded-md text-[7px] font-black uppercase ${activeSystem.selectorSwitchStatus === o ? (o === 'Normal' ? 'bg-emerald-600' : 'bg-primary') + ' text-white' : 'bg-background-dark/50 text-text-muted'}`}>{o}</button>
                        ))}
                     </div>
                  </div>
-                 {data.selectorSwitchStatus === 'Fault' && (
+                 {activeSystem.selectorSwitchStatus === 'Fault' && (
                     <div className="flex gap-2 mt-1 animate-in slide-in-from-top duration-300">
-                       <PhotoCaptureBox photo={data.selectorSwitchPhoto} onCapture={(p) => setData({...data, selectorSwitchPhoto: p})} />
+                       <PhotoCaptureBox photo={activeSystem.selectorSwitchPhoto} onCapture={(p) => updateActiveSystem({ selectorSwitchPhoto: p })} />
                        <textarea 
-                         value={data.selectorSwitchRemarks} 
-                         onChange={(e) => setData({...data, selectorSwitchRemarks: e.target.value})} 
+                         value={activeSystem.selectorSwitchRemarks} 
+                         onChange={(e) => updateActiveSystem({ selectorSwitchRemarks: e.target.value })} 
                          className="flex-1 bg-background-dark/50 border-none rounded-lg p-2 text-[8px] text-white italic h-16" 
                          placeholder="Switch fault details..." 
                        />
@@ -301,8 +390,8 @@ const PumpSystem: React.FC = () => {
            <div className="flex flex-col gap-2 mb-4">
               <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Overall System Remarks</label>
               <textarea 
-                value={data.overallRemarks || ''} 
-                onChange={(e) => setData({...data, overallRemarks: e.target.value})} 
+                value={activeSystem.overallRemarks || ''} 
+                onChange={(e) => updateActiveSystem({ overallRemarks: e.target.value })} 
                 className="w-full bg-background-dark/50 border-none rounded-xl p-4 text-xs font-medium text-white h-24 focus:ring-1 focus:ring-primary" 
                 placeholder="Describe maintenance work performed, testing results, or findings..." 
               />
@@ -310,14 +399,14 @@ const PumpSystem: React.FC = () => {
 
            <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1 mb-2 block">Service Verification Photos (4)</label>
            <div className="grid grid-cols-4 gap-3">
-              {data.servicePhotos.map((photo, idx) => (
+              {activeSystem.servicePhotos.map((photo, idx) => (
                 <div key={idx} className="flex flex-col gap-1">
                    <PhotoCaptureBox 
                      photo={photo} 
                      onCapture={(p) => {
-                        const newPhotos = [...data.servicePhotos];
+                        const newPhotos = [...activeSystem.servicePhotos];
                         newPhotos[idx] = p;
-                        setData({...data, servicePhotos: newPhotos});
+                        updateActiveSystem({ servicePhotos: newPhotos });
                      }} 
                    />
                    <span className="text-[6px] font-black text-text-muted uppercase text-center">Img {idx+1}</span>

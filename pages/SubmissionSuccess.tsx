@@ -12,23 +12,21 @@ const SubmissionSuccess: React.FC = () => {
 
   const DEFECT_TERMS = ['Defective', 'Fault', 'Faulty', 'Damaged', 'Failed', 'Low', 'Broken', 'Leaking', 'Corroded', 'Loose', 'Blocked', 'Blown', 'Expired', 'High', 'Abnormal', 'Missing'];
 
-  const BESTRO_LOGO_DATA = `
-    <div style="width:120px; display:inline-block; text-align:center;">
-      <svg width="120" height="60" viewBox="0 0 240 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <ellipse cx="120" cy="60" rx="110" ry="52" fill="#ec1313" />
-        <path d="M45 28C75 18 165 18 195 28" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.3" />
-        <path d="M45 92C75 102 165 102 195 92" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.3" />
-        <text x="100" y="68" font-family="Arial Black, sans-serif" font-size="44" font-weight="900" fill="white" text-anchor="middle" letter-spacing="-2">BESTR</text>
-        <g transform="translate(180, 56)">
-          <circle cx="0" cy="0" r="18" fill="white" />
-          <path d="M0 -10C0 -10 7 -3 7 4C7 11 0 14 0 14C0 14 -7 11 -7 4C-7 -3 0 -10 0 -10Z" fill="#ec1313" />
-          <path d="M0 -5C0 -5 3 -2 3 2C3 6 0 8 0 8C0 8 -3 6 -3 2C-3 -2 0 -5 0 -5Z" fill="white" fill-opacity="0.4" />
-        </g>
-        <text x="120" y="92" font-family="Arial, sans-serif" font-size="12" font-weight="800" fill="white" text-anchor="middle" letter-spacing="6">ENGINEERING</text>
-      </svg>
-      <div style="font-family: serif; font-style: italic; font-size: 5pt; color: #64748b; margin-top: 2px; font-weight: bold; letter-spacing: 1px;">'Connect & Protect'</div>
-    </div>
-  `;
+  const BESTRO_LOGO_DATA_URI = `data:image/svg+xml;base64,${btoa(`
+    <svg viewBox="0 0 450 250" xmlns="http://www.w3.org/2000/svg">
+      <ellipse cx="225" cy="110" rx="200" ry="100" fill="#ec1313" />
+      <text x="50%" y="120" text-anchor="middle" fill="white" style="font: bold 75px Arial, sans-serif; letter-spacing: -2px;">BESTRO</text>
+      <text x="50%" y="165" text-anchor="middle" fill="white" style="font: 900 24px Arial, sans-serif; letter-spacing: 8px;">ENGINEERING</text>
+      <text x="50%" y="235" text-anchor="middle" fill="#333" style="font: italic bold 26px serif;">Connect &amp; Protect</text>
+    </svg>
+  `)}`;
+
+  const FIRE_EXT_BG_DATA_URI = `data:image/svg+xml;base64,${btoa(`
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" opacity="0.05">
+      <path d="M70,30 V25 A5,5 0 0,0 65,20 H35 A5,5 0 0,0 30,25 V30 H25 V85 A5,5 0 0,0 30,90 H70 A5,5 0 0,0 75,85 V30 H70 Z M50,45 A10,10 0 1,1 50,65 A10,10 0 0,1 50,45 M35,10 H65 V15 H35 V10 Z" fill="#ec1313"/>
+      <path d="M75,35 L85,25 L88,28 L78,38 Z" fill="#ec1313"/>
+    </svg>
+  `)}`;
 
   useEffect(() => {
     const fetchAllData = () => {
@@ -188,17 +186,15 @@ const SubmissionSuccess: React.FC = () => {
       // --- 2. TECHNICAL DETAIL PROCESSING ---
       let tableRows = `<tr class="page-break"><td colspan="6" class="section-header" style="background:#ec1313; text-align:center; padding:12px;">SYSTEM TECHNICAL CHECK SHEET: ${label}</td></tr>`;
       
-      // Header Info
+      // Header Info with technical description
       tableRows += `<tr style="background:#f8fafc;"><td class="label">OVERALL STATUS</td><td style="${getStatusStyle(data.systemOverallStatus || 'Normal')}">${data.systemOverallStatus || 'Normal'}</td><td class="label">TECHNICAL DESCRIPTION</td><td colspan="3" style="font-size:7.5pt; font-style:italic;">${data.systemDescription || 'As per field log.'}</td></tr>`;
 
       if (label.includes('Main Fire Alarm')) {
-        // Technical Specs
         tableRows += `<tr><td colspan="6" class="section-header" style="background:#475569; font-size:7.5pt;">PART I: PANEL HARDWARE & POWER</td></tr>`;
         tableRows += `<tr><td class="label">MODEL</td><td>${data.panelSpecs?.model}</td><td class="label">TOTAL ZONES</td><td>${data.panelSpecs?.totalZones}</td><td class="label">LOCATION</td><td>${data.panelSpecs?.location}</td></tr>`;
         tableRows += `<tr><td class="label">BATT VOLT</td><td style="${getStatusStyle(data.panelSpecs?.batteryVolt)}">${data.panelSpecs?.batteryVolt}V</td><td class="label">CHARGER</td><td style="${getStatusStyle(data.panelSpecs?.chargerVolt)}">${data.panelSpecs?.chargerVolt}V</td><td class="label">BATT STATUS</td><td style="${getStatusStyle(data.panelSpecs?.batteryStatus)}">${data.panelSpecs?.batteryStatus}</td></tr>`;
         if (data.panelSpecs?.batteryPhoto) tableRows += renderImg(data.panelSpecs.batteryPhoto, 'Standby Battery Proof', true);
         
-        // Defect Scan for Alarm
         if (DEFECT_TERMS.some(t => String(data.panelSpecs?.batteryStatus).includes(t))) addFaultRow(label, 'Panel', 'Battery', data.panelSpecs.batteryRemarks, data.panelSpecs.batteryStatus, data.panelSpecs.batteryPhoto);
         
         if (data.indicators) {
@@ -208,6 +204,17 @@ const SubmissionSuccess: React.FC = () => {
               if (DEFECT_TERMS.some(t => String(ind.status).includes(t))) {
                 addFaultRow(label, 'Signal', ind.label, ind.remarks, ind.status, ind.photo);
                 if (ind.photo) tableRows += renderImg(ind.photo, `${ind.label} Fault`, true);
+              }
+           });
+        }
+        
+        if (data.zones) {
+           tableRows += `<tr><td colspan="6" class="section-header" style="background:#1e293b; font-size:7.5pt;">PART III: ZONE REGISTRY</td></tr>`;
+           data.zones.forEach((z: any) => {
+              tableRows += `<tr><td class="label">ZONE ${z.zoneNo}</td><td>${z.name}</td><td class="label">STATUS</td><td style="${getStatusStyle(z.status)}">${z.status}</td><td class="label">DEVICES</td><td>S:${z.smokeQty} H:${z.heatQty} B:${z.bellQty} BG:${z.breakglassQty}</td></tr>`;
+              if (DEFECT_TERMS.some(t => String(z.status).includes(t))) {
+                addFaultRow(label, `Zone ${z.zoneNo}`, z.name, z.remarks, z.status, z.photo);
+                if (z.photo) tableRows += renderImg(z.photo, `Zone ${z.zoneNo} Defect`, true);
               }
            });
         }
@@ -243,7 +250,6 @@ const SubmissionSuccess: React.FC = () => {
           }
         });
 
-        // FULL Panel Details for Pump
         tableRows += `<tr><td colspan="6" class="section-header" style="background:#1e293b; font-size:7.5pt;">PUMP CONTROL PANEL INTEGRITY</td></tr>`;
         tableRows += `<tr><td class="label">INCOMING</td><td style="font-weight:bold;">${data.panelIncomingVolt}V</td><td class="label">LAMPS</td><td style="${getStatusStyle(data.panelLampsStatus)}">${data.panelLampsStatus}</td><td class="label">WIRING</td><td style="${getStatusStyle(data.panelWiringStatus)}">${data.panelWiringStatus}</td></tr>`;
         
@@ -261,7 +267,6 @@ const SubmissionSuccess: React.FC = () => {
         }
       }
       else {
-        // Generic Asset Check Sheet
         const items = Array.isArray(data) ? data : (data.items || []);
         items.forEach((item: any, idx: number) => {
           const itemName = item.serial || item.brand || item.location || `UNIT #${idx+1}`;
@@ -279,7 +284,6 @@ const SubmissionSuccess: React.FC = () => {
             tableRows += `</tr>`;
           }
 
-          // Defect Scan for Assets
           if (item.remarks && typeof item.remarks === 'object') {
             Object.entries(item.remarks).forEach(([key, msg]) => {
               if (msg && DEFECT_TERMS.some(t => String(msg).toLowerCase().includes(t.toLowerCase()))) {
@@ -293,7 +297,6 @@ const SubmissionSuccess: React.FC = () => {
         });
       }
 
-      // System-level Proof Grid
       if (data.overallRemarks || (data.servicePhotos && data.servicePhotos.some((p:string) => p))) {
         tableRows += `<tr><td colspan="6" class="section-header" style="background:#1e293b; font-size:7.5pt; text-align:center;">SERVICE COMPLETION PROOF</td></tr>`;
         if (data.overallRemarks) tableRows += `<tr><td class="label">SUMMARY REMARKS</td><td colspan="5" style="font-size:7.5pt; padding:10px; font-style:italic;">"${data.overallRemarks}"</td></tr>`;
@@ -307,7 +310,7 @@ const SubmissionSuccess: React.FC = () => {
       <html>
       <head>
         <meta charset="UTF-8">
-        <title>BESTRO OS - Maintenance Report ${auditId}</title>
+        <title>BESTRO OS - Service Maintenance Report ${auditId}</title>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
           @page { size: A4; margin: 10mm; }
@@ -317,38 +320,45 @@ const SubmissionSuccess: React.FC = () => {
           .main-table td { padding: 6px; border: 1pt solid #cbd5e1; font-size: 7.5pt; vertical-align: middle; word-wrap: break-word; }
           .label { background: #f1f5f9; font-weight: 900; font-size: 6pt; text-transform: uppercase; color: #475569; width: 85px; }
           .section-header { background: #1e293b; color: white; padding: 8px; font-weight: 900; font-size: 8pt; text-transform: uppercase; border: 1pt solid #000; }
-          .company-header-container { display: flex; justify-content: space-between; align-items: center; border-bottom: 2.5pt solid #ec1313; padding-bottom: 12px; margin-bottom: 25px; }
-          .header-center { flex: 1; text-align: center; }
+          .company-header-container { display: flex; justify-content: flex-start; align-items: center; border-bottom: 2.5pt solid #ec1313; padding-bottom: 12px; margin-bottom: 25px; position: relative; z-index: 10; }
+          .header-text-area { flex: 1; text-align: center; }
           .company-name { font-size: 20pt; font-weight: 900; color: #ec1313; margin: 0; }
           .company-address { font-size: 7.5pt; font-weight: 600; color: #1e293b; margin: 3px 0; }
+          .cover-page { border: 10pt solid #ec1313; padding: 40px; height: 260mm; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between; text-align:center; position: relative; overflow: hidden; }
+          .cover-bg-logo { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 450px; height: 450px; z-index: 1; opacity: 1; pointer-events: none; }
+          .page-break { page-break-before: always; }
         </style>
       </head>
       <body>
         <div class="a4-container">
-          <!-- Cover Page Section -->
-          <div style="border: 10pt solid #ec1313; padding: 40px; height: 260mm; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between; text-align:center;">
-             <div>
+          <div class="cover-page">
+             <img src="${FIRE_EXT_BG_DATA_URI}" class="cover-bg-logo" />
+             <div style="position: relative; z-index: 10;">
                 <div class="company-header-container">
-                   <div style="width:130px;">${BESTRO_LOGO_DATA}</div>
-                   <div class="header-center"><div class="company-name">BESTRO ENG SDN BHD</div><div class="company-address">4, Jalan Utarid U5/28 U5, 40150 Shah Alam, Selangor Darul Ehsan</div></div>
-                   <div style="width:130px;">${setupData?.clientLogo ? `<img src="${setupData.clientLogo}" style="max-height:55px; max-width:110px; object-fit:contain;" />` : ''}</div>
+                   <div style="width: 160px; flex-shrink: 0; margin-right: 20px;">
+                      <img src="${BESTRO_LOGO_DATA_URI}" style="width: 100%; height: auto; display: block;" />
+                   </div>
+                   <div class="header-text-area">
+                     <div class="company-name">BESTRO ENG SDN BHD</div>
+                     <div class="company-address">NO. 26, JALAN URANUS AK U5/AK, TAMAN SUBANG IMPIAN, 40150 SHAH ALAM, SELANGOR DARUL EHSAN</div>
+                   </div>
+                   <div style="width:130px; flex-shrink: 0; text-align: right;">${setupData?.clientLogo ? `<img src="${setupData.clientLogo}" style="max-height:55px; max-width:110px; object-fit:contain;" />` : ''}</div>
                 </div>
-                <h1 style="font-size:30pt; font-weight:900; margin: 35px 0 8px 0;">MAINTENANCE AUDIT DOSSIER</h1>
-                <p style="text-transform:uppercase; font-weight:900; color:#ec1313; letter-spacing:4px; font-size:10pt;">Connect & Protect • Engineering Excellence</p>
+                <h1 style="font-size:30pt; font-weight:900; margin: 35px 0 8px 0;">SERVICE MAINTENANCE REPORT</h1>
+                <p style="text-transform:uppercase; font-weight:900; color:#ec1313; letter-spacing:4px; font-size:10pt;">Engineering Excellence • Since 2008</p>
              </div>
-             <div style="flex:1; display:flex; align-items:center; justify-content:center;">
-                <table style="width:100%; border:2.5pt solid #000; border-collapse:collapse;">
+             <div style="flex:1; display:flex; align-items:center; justify-content:center; position: relative; z-index: 10;">
+                <table style="width:100%; border:2.5pt solid #000; border-collapse:collapse; background: rgba(255,255,255,0.85);">
                    <tr><td style="padding:15px; font-weight:900; background:#f8fafc; border:1pt solid #000; width:30%;">SITE NAME</td><td style="padding:15px; font-weight:900; font-size:16pt; border:1pt solid #000;">${site}</td></tr>
-                   <tr><td style="padding:15px; font-weight:900; background:#f8fafc; border:1pt solid #000;">DOSSIER REF</td><td style="padding:15px; font-weight:900; color:#ec1313; border:1pt solid #000;">${auditId}</td></tr>
-                   <tr><td style="padding:15px; font-weight:900; background:#f8fafc; border:1pt solid #000;">AUDIT CYCLE</td><td style="padding:15px; font-weight:900; border:1pt solid #000;">${cycle} Assessment</td></tr>
+                   <tr><td style="padding:15px; font-weight:900; background:#f8fafc; border:1pt solid #000;">REPORT REF</td><td style="padding:15px; font-weight:900; color:#ec1313; border:1pt solid #000;">${auditId}</td></tr>
+                   <tr><td style="padding:15px; font-weight:900; background:#f8fafc; border:1pt solid #000;">SERVICE CYCLE</td><td style="padding:15px; font-weight:900; border:1pt solid #000;">${cycle} Assessment</td></tr>
                    <tr><td style="padding:15px; font-weight:900; background:#f8fafc; border:1pt solid #000;">REPORT DATE</td><td style="padding:15px; font-weight:bold; border:1pt solid #000;">${date}</td></tr>
                    <tr><td style="padding:15px; font-weight:900; background:#f8fafc; border:1pt solid #000;">LEAD AUDITOR</td><td style="padding:15px; font-weight:bold; border:1pt solid #000;">${tech.toUpperCase()}</td></tr>
                 </table>
              </div>
-             <div style="font-size:7.5pt; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:2px;">OFFICIAL ENGINEERING VERIFICATION RECORD</div>
+             <div style="font-size:7.5pt; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:2px; position: relative; z-index: 10;">OFFICIAL ENGINEERING VERIFICATION RECORD</div>
           </div>
 
-          <!-- Content Section -->
           <div style="padding-top:20px;">
              <h2 style="border-bottom:2.5pt solid #ec1313; padding-bottom:8px; font-weight:900; font-size:13pt;">I. DEFICIENCY SUMMARY</h2>
              <table class="main-table">
@@ -359,7 +369,7 @@ const SubmissionSuccess: React.FC = () => {
                    <th style="padding:8px; font-size:7pt; border:1pt solid #000;">FAULT DESCRIPTION</th>
                    <th style="padding:8px; font-size:7pt; border:1pt solid #000; width:12%;">STATUS</th>
                 </tr>
-                ${faultSummaryRows || '<tr><td colspan="5" style="text-align:center; padding:35px; color:#059669; font-weight:bold; font-size:10pt;">(SyStem In working Normal Condition)</td></tr>'}
+                ${faultSummaryRows || '<tr><td colspan="5" style="text-align:center; padding:35px; color:#059669; font-weight:bold; font-size:9pt; font-style:italic; line-height:1.5;">Based on the inspection conducted, all fire protection systems were found to be functional and compliant with the required standards.</td></tr>'}
              </table>
 
              <h2 style="border-bottom:2.5pt solid #ec1313; padding-bottom:8px; font-weight:900; margin-top:35px; font-size:13pt;">II. ASSET INVENTORY CENSUS</h2>
@@ -368,7 +378,6 @@ const SubmissionSuccess: React.FC = () => {
              <h2 style="border-bottom:2.5pt solid #ec1313; padding-bottom:8px; font-weight:900; margin-top:35px; font-size:13pt;">III. FULL TECHNICAL LOGS</h2>
              ${reportSections}
 
-             <!-- Sign-off Section -->
              <div style="margin-top:50px; border:1.5pt solid #000; padding:25px; background:#f8fafc;">
                 <h3 style="font-weight:900; text-transform:uppercase; border-bottom:1pt solid #000; padding-bottom:8px; font-size:10pt;">Final Certification</h3>
                 <div style="display:flex; justify-content:space-between; margin-top:50px;">
@@ -390,7 +399,7 @@ const SubmissionSuccess: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `BESTRO_FULL_TECHNICAL_REPORT_${auditId}.xls`);
+      link.setAttribute("download", `BESTRO_SERVICE_REPORT_${auditId}.xls`);
       link.click();
     } else {
       const printWin = window.open('', '_blank');
