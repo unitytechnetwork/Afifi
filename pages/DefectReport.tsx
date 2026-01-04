@@ -37,15 +37,6 @@ const DefectReport: React.FC = () => {
 
   const DEFECT_TERMS = ['Defective', 'Fault', 'Faulty', 'Damaged', 'Failed', 'Low', 'Broken', 'Leaking', 'Corroded', 'Loose', 'Blocked', 'Blown', 'Expired', 'High', 'Abnormal', 'Missing'];
 
-  const BESTRO_LOGO_DATA_URI = `data:image/svg+xml;base64,${btoa(`
-    <svg viewBox="0 0 450 250" xmlns="http://www.w3.org/2000/svg">
-      <ellipse cx="225" cy="110" rx="200" ry="100" fill="#ec1313" />
-      <text x="50%" y="120" text-anchor="middle" fill="white" style="font: bold 75px Arial, sans-serif; letter-spacing: -2px;">BESTRO</text>
-      <text x="50%" y="165" text-anchor="middle" fill="white" style="font: 900 24px Arial, sans-serif; letter-spacing: 8px;">ENGINEERING</text>
-      <text x="50%" y="235" text-anchor="middle" fill="#333" style="font: italic bold 26px serif;">Connect &amp; Protect</text>
-    </svg>
-  `)}`;
-
   useEffect(() => {
     const scanSystems = () => {
       setIsLoading(true);
@@ -83,22 +74,47 @@ const DefectReport: React.FC = () => {
           if (data.isNA) return;
 
           if (sys.label === 'Main Fire Alarm') {
-            if (DEFECT_TERMS.includes(data.panelSpecs?.batteryStatus)) {
-              foundDefects.push(createDefect(sys.label, 'Panel', 'Battery', data.panelSpecs.batteryRemarks, data.panelSpecs.batteryPhoto, sys.path, 'Critical', trackerData, setup, 'batt', sys.key));
-            }
-            data.cardConditions?.forEach((c: any) => {
-              if (DEFECT_TERMS.includes(c.status)) foundDefects.push(createDefect(sys.label, 'Internal Card', c.label, c.remarks, c.photo, sys.path, 'Critical', trackerData, setup, `card_${c.id}`, sys.key));
+            const panels = Array.isArray(data) ? data : [data];
+            panels.forEach((p:any) => {
+              if (DEFECT_TERMS.includes(p.panelSpecs?.batteryStatus)) {
+                foundDefects.push(createDefect(sys.label, p.systemName || 'Panel', 'Battery', p.panelSpecs.batteryRemarks, p.panelSpecs.batteryPhoto, sys.path, 'Critical', trackerData, setup, `batt_${p.id}`, sys.key));
+              }
+              p.cardConditions?.forEach((c: any) => {
+                if (DEFECT_TERMS.includes(c.status)) foundDefects.push(createDefect(sys.label, p.systemName || 'Panel', c.label, c.remarks, c.photo, sys.path, 'Critical', trackerData, setup, `card_${c.id}`, sys.key));
+              });
+              p.indicators?.forEach((ind: any) => {
+                if (DEFECT_TERMS.includes(ind.status)) foundDefects.push(createDefect(sys.label, p.systemName || 'Panel', ind.label, ind.remarks, ind.photo, sys.path, 'Major', trackerData, setup, `ind_${ind.id}`, sys.key));
+              });
+              p.zones?.forEach((z: any) => {
+                if (DEFECT_TERMS.includes(z.status)) foundDefects.push(createDefect(sys.label, p.systemName || 'Panel', `Zone ${z.zoneNo}: ${z.name}`, z.remarks, z.photo, sys.path, 'Major', trackerData, setup, `zone_${z.id}`, sys.key));
+              });
             });
-            data.indicators?.forEach((ind: any) => {
-              if (DEFECT_TERMS.includes(ind.status)) foundDefects.push(createDefect(sys.label, 'Signals', ind.label, ind.remarks, ind.photo, sys.path, 'Major', trackerData, setup, `ind_${ind.id}`, sys.key));
+          }
+          else if (sys.label === 'Gas Suppression') {
+            const units = Array.isArray(data) ? data : [data];
+            units.forEach((u: any) => {
+              u.integrationItems?.forEach((i: any) => {
+                if (i.status === 'Faulty' || DEFECT_TERMS.includes(i.status)) {
+                  foundDefects.push(createDefect(sys.label, u.zoneName || 'Server Room', i.label, i.remarks, i.photo, sys.path, 'Critical', trackerData, setup, `gas_${u.id}_${i.id}`, sys.key));
+                }
+              });
             });
           }
           else if (sys.label.includes('Pump')) {
-            if (data.dutyUnit && DEFECT_TERMS.includes(data.dutyUnit.status)) foundDefects.push(createDefect(sys.label, 'Mechanical', 'Duty Pump', data.dutyUnit.remarks, data.dutyUnit.photo, sys.path, 'Critical', trackerData, setup, 'pump_Duty Pump', sys.key));
-            if (data.standbyUnit && DEFECT_TERMS.includes(data.standbyUnit.status)) foundDefects.push(createDefect(sys.label, 'Mechanical', 'Standby Pump', data.standbyUnit.remarks, data.standbyUnit.photo, sys.path, 'Critical', trackerData, setup, 'pump_Standby Pump', sys.key));
-            if (data.jockeyUnit && DEFECT_TERMS.includes(data.jockeyUnit.status)) foundDefects.push(createDefect(sys.label, 'Mechanical', 'Jockey Pump', data.jockeyUnit.remarks, data.jockeyUnit.photo, sys.path, 'Major', trackerData, setup, 'pump_Jockey Pump', sys.key));
-            if (data.panelLampsStatus === 'Fault') foundDefects.push(createDefect(sys.label, 'Panel', 'Indication Lamps', data.panelLampsRemarks, data.panelLampsPhoto, sys.path, 'Major', trackerData, setup, 'p_lamps', sys.key));
-            if (data.panelWiringStatus === 'Fault') foundDefects.push(createDefect(sys.label, 'Panel', 'Wiring Logic', data.panelWiringRemarks, data.panelWiringPhoto, sys.path, 'Critical', trackerData, setup, 'p_wiring', sys.key));
+            const pumps = Array.isArray(data) ? data : [data];
+            pumps.forEach((u: any) => {
+              const checkUnit = (unit: any, ulabel: string) => {
+                if (unit && DEFECT_TERMS.includes(unit.status)) {
+                  foundDefects.push(createDefect(sys.label, u.systemName || 'Pump Set', ulabel, unit.remarks, unit.photo, sys.path, 'Critical', trackerData, setup, `pump_${u.id}_${ulabel}`, sys.key));
+                }
+              };
+              checkUnit(u.jockeyUnit, 'Jockey Pump');
+              checkUnit(u.dutyUnit, 'Duty Pump');
+              checkUnit(u.standbyUnit, 'Standby Pump');
+              
+              if (u.panelLampsStatus === 'Fault') foundDefects.push(createDefect(sys.label, u.systemName || 'Pump Set', 'Indicator Lamps', u.panelLampsRemarks, u.panelLampsPhoto, sys.path, 'Major', trackerData, setup, `plamp_${u.id}`, sys.key));
+              if (u.panelWiringStatus === 'Fault') foundDefects.push(createDefect(sys.label, u.systemName || 'Pump Set', 'Internal Wiring', u.panelWiringRemarks, u.panelWiringPhoto, sys.path, 'Critical', trackerData, setup, `pwiring_${u.id}`, sys.key));
+            });
           }
           else {
             const items = Array.isArray(data) ? data : (data.items || []);
@@ -107,192 +123,38 @@ const DefectReport: React.FC = () => {
               Object.entries(item).forEach(([key, value]) => {
                 if (typeof value === 'string' && DEFECT_TERMS.includes(value)) {
                   const faultLabel = key.replace('Status', '').replace('Outcome', '').toUpperCase();
-                  const specificPhoto = item.photo || (item.photos && item.photos[key]);
-                  foundDefects.push(createDefect(sys.label, 'Asset Inventory', `${unitName} (${faultLabel})`, item.remarks?.[key] || 'Defect detected.', specificPhoto, sys.path, 'Minor', trackerData, setup, `item_${item.id}_${key}`, sys.key));
+                  const specificPhoto = (item.photos && item.photos[key]) || item.photo;
+                  foundDefects.push(createDefect(sys.label, 'Inventory', `${unitName} (${faultLabel})`, (item.remarks?.[key] || item.remarks) || 'Defect detected.', specificPhoto, sys.path, 'Minor', trackerData, setup, `item_${item.id}_${key}`, sys.key));
                 }
               });
             });
           }
-        } catch (e) {}
+        } catch (e) { console.error("Scanner Error:", e); }
       });
       setDefects(foundDefects);
       setIsLoading(false);
     };
 
-    const createDefect = (sys: string, sec: string, label: string, desc: string, photo: string, path: string, defSeverity: any, tracker: any, setup: any, idSuffix: string, sourceKey: string): DefectEntry => {
+    const createDefect = (sys: string, sec: string, label: string, desc: any, photo: any, path: string, defSeverity: any, tracker: any, setup: any, idSuffix: string, sourceKey: string): DefectEntry => {
       const uid = `${auditId}_${idSuffix}`;
+      let finalDesc = 'Field verification required.';
+      if (typeof desc === 'string') finalDesc = desc;
+      else if (typeof desc === 'object' && desc !== null) finalDesc = Object.values(desc).filter(v => v).join('. ');
+
       return {
-        uid, system: sys, section: sec, itemLabel: label, description: desc || 'Field verification required.', photo, path, dateDetected: setup?.date || new Date().toLocaleDateString(), dossierId: auditId, severity: tracker[uid]?.severity || defSeverity, status: tracker[uid]?.status || 'Open', technician: setup?.techName || 'Lead Auditor', sourceKey, sourceId: idSuffix
+        uid, system: sys, section: sec, itemLabel: label, description: finalDesc, photo, path, 
+        dateDetected: setup?.date || new Date().toLocaleDateString(), 
+        dossierId: auditId, 
+        severity: tracker[uid]?.severity || defSeverity, 
+        status: tracker[uid]?.status || 'Open', 
+        technician: setup?.techName || 'Lead Auditor', 
+        sourceKey, 
+        sourceId: idSuffix
       };
     };
 
     scanSystems();
   }, [auditId]);
-
-  const handleExportPDF = () => {
-    const site = setupData?.clientName?.toUpperCase() || 'N/A';
-    const tech = setupData?.techName || 'N/A';
-    const date = new Date().toLocaleDateString();
-
-    let defectRowsHtml = '';
-    defects.forEach((d, idx) => {
-      const severityColor = d.severity === 'Critical' ? '#ec1313' : d.severity === 'Major' ? '#f59e0b' : '#3b82f6';
-      const statusColor = d.status === 'Rectified' ? '#059669' : '#ec1313';
-      
-      defectRowsHtml += `
-        <tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-          <td style="padding: 12px; border: 1pt solid #cbd5e1; font-weight: 900; font-size: 8.5pt; width: 130px; color: #1e293b;">${d.system.toUpperCase()}</td>
-          <td style="padding: 12px; border: 1pt solid #cbd5e1; font-size: 8.5pt;">
-            <div style="font-weight: 900; color: #ec1313; margin-bottom: 4px; text-transform: uppercase;">${d.itemLabel} (${d.section})</div>
-            <div style="font-style: italic; color: #475569; line-height: 1.4;">"${d.description}"</div>
-            <div style="margin-top: 8px; font-size: 7pt; color: #94a3b8; font-weight: bold;">RECORDED: ${d.dateDetected}</div>
-          </td>
-          <td style="padding: 12px; border: 1pt solid #cbd5e1; text-align: center; font-weight: 900; font-size: 7.5pt; color: white; width: 90px;">
-            <div style="background: ${severityColor}; padding: 4px; border-radius: 4px;">${d.severity.toUpperCase()}</div>
-          </td>
-          <td style="padding: 12px; border: 1pt solid #cbd5e1; text-align: center; font-weight: 900; font-size: 7.5pt; color: white; width: 95px;">
-            <div style="background: ${statusColor}; padding: 4px; border-radius: 4px;">${d.status.toUpperCase()}</div>
-          </td>
-        </tr>
-        ${d.photo ? `
-        <tr>
-          <td colspan="4" style="padding: 20px; border: 1pt solid #cbd5e1; background: #f1f5f9; text-align: center;">
-            <div style="max-width: 500px; margin: 0 auto; background: white; padding: 10px; border-radius: 8px; border: 1pt solid #cbd5e1; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-               <img src="${d.photo}" style="max-height: 350px; max-width: 100%; object-fit: contain;" />
-            </div>
-            <div style="font-size: 7pt; font-weight: 900; color: #64748b; text-transform: uppercase; margin-top: 10px; letter-spacing: 1px;">FORENSIC EVIDENCE PHOTO #${idx+1}: ${d.itemLabel}</div>
-          </td>
-        </tr>
-        ` : ''}
-      `;
-    });
-
-    const fullHtml = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-          @page { size: A4; margin: 15mm; }
-          body { font-family: 'Inter', sans-serif; color: #1e293b; line-height: 1.5; margin: 0; background: white; }
-          .header-container { display: flex; justify-content: flex-start; align-items: center; border-bottom: 4pt solid #ec1313; padding-bottom: 20px; margin-bottom: 30px; }
-          .logo-area { width: 140px; flex-shrink: 0; margin-right: 20px; }
-          .title-area { flex: 1; text-align: right; }
-          .main-title { font-size: 24pt; font-weight: 900; color: #ec1313; text-transform: uppercase; margin: 0; line-height: 1; }
-          .sub-title { font-size: 9pt; font-weight: 800; color: #64748b; margin-top: 5px; letter-spacing: 2px; text-transform: uppercase; }
-          
-          .summary-box { width: 100%; border-collapse: collapse; margin-bottom: 35px; border-radius: 12px; overflow: hidden; }
-          .summary-box td { padding: 12px 15px; border: 1pt solid #e2e8f0; font-size: 9.5pt; }
-          .summary-box .label { font-weight: 900; color: #475569; width: 180px; text-transform: uppercase; font-size: 7.5pt; background: #f8fafc; }
-          
-          .table-header { background: #1e293b; color: white; text-transform: uppercase; font-size: 7.5pt; font-weight: 900; letter-spacing: 1px; }
-          .defect-table { width: 100%; border-collapse: collapse; border: 1pt solid #cbd5e1; }
-          .defect-table th { padding: 12px; text-align: left; }
-          
-          .footer { margin-top: 60px; border-top: 1pt solid #cbd5e1; padding-top: 25px; text-align: center; }
-          .footer-text { font-size: 7.5pt; color: #94a3b8; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase; }
-        </style>
-      </head>
-      <body>
-        <div class="header-container">
-          <div class="logo-area">
-            <img src="${BESTRO_LOGO_DATA_URI}" style="width: 100%; height: auto;" />
-          </div>
-          <div class="title-area">
-            <h1 class="main-title">DEFICIENCY REGISTER</h1>
-            <div class="sub-title">Audit Record: ${auditId}</div>
-          </div>
-        </div>
-
-        <table class="summary-box">
-          <tr><td class="label">Site / Facility Name</td><td style="font-weight: 900; font-size: 13pt; color: #1e293b;">${site}</td></tr>
-          <tr><td class="label">Lead Technical Auditor</td><td style="font-weight: 700;">${tech.toUpperCase()}</td></tr>
-          <tr><td class="label">Report Generation Date</td><td style="font-weight: 700;">${date}</td></tr>
-          <tr><td class="label">Total Deficiencies Found</td><td style="font-weight: 900; color: #ec1313;">${defects.length} ACTIVE RECORDS</td></tr>
-        </table>
-
-        <div style="background: #ec1313; color: white; padding: 10px 15px; font-weight: 900; font-size: 10pt; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 0;">
-          Operational Deficiencies Matrix
-        </div>
-        <table class="defect-table">
-          <thead>
-            <tr class="table-header">
-              <th style="width: 130px;">System Module</th>
-              <th>Description & Technical Remarks</th>
-              <th style="text-align: center; width: 90px;">Severity</th>
-              <th style="text-align: center; width: 95px;">Current Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${defectRowsHtml || '<tr><td colspan="4" style="text-align: center; padding: 60px; font-style: italic; color: #64748b; font-weight: bold; font-size: 11pt;">ZERO DEFICIENCIES DETECTED IN CURRENT REGISTRY.</td></tr>'}
-          </tbody>
-        </table>
-
-        <div class="footer">
-          <div class="footer-text">
-            © BESTRO ENGINEERING SDN BHD • CONFIDENTIAL TECHNICAL DOCUMENT
-          </div>
-          <div style="font-size: 6pt; color: #cbd5e1; margin-top: 5px;">This document is generated digitally and serves as an official engineering verification record.</div>
-        </div>
-      </body>
-      </html>
-    `;
-
-    const printWin = window.open('', '_blank');
-    if (printWin) {
-      printWin.document.write(fullHtml);
-      printWin.document.close();
-      setTimeout(() => {
-        printWin.focus();
-        printWin.print();
-      }, 500);
-    }
-  };
-
-  const onPhotoCaptured = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !activePhotoUid) return;
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64 = reader.result as string;
-      const defect = defects.find(d => d.uid === activePhotoUid);
-      if (!defect) return;
-
-      setDefects(prev => prev.map(d => d.uid === activePhotoUid ? { ...d, photo: base64 } : d));
-
-      try {
-        const raw = localStorage.getItem(defect.sourceKey);
-        if (raw) {
-          let sourceData = JSON.parse(raw);
-          const sid = defect.sourceId;
-          if (defect.sourceKey.includes('pump')) {
-            if (sid === 'pump_Duty Pump') sourceData.dutyUnit.photo = base64;
-            else if (sid === 'pump_Standby Pump') sourceData.standbyUnit.photo = base64;
-            else if (sid === 'pump_Jockey Pump') sourceData.jockeyUnit.photo = base64;
-            else if (sid === 'p_lamps') sourceData.panelLampsPhoto = base64;
-            else if (sid === 'p_wiring') sourceData.panelWiringPhoto = base64;
-          } else if (defect.sourceKey.includes('checklist')) {
-            if (sid === 'batt') sourceData.panelSpecs.batteryPhoto = base64;
-          } else if (sid.startsWith('item_')) {
-            const sidParts = sid.split('_');
-            const itemId = sidParts[1];
-            const field = sidParts[2];
-            const items = sourceData.items || [];
-            sourceData.items = items.map((it: any) => {
-              if (it.id === itemId) {
-                if (it.photos) it.photos[field] = base64;
-                else it.photo = base64;
-              }
-              return it;
-            });
-          }
-          localStorage.setItem(defect.sourceKey, JSON.stringify(sourceData));
-        }
-      } catch (err) {}
-    };
-    reader.readAsDataURL(file);
-  };
 
   const updateDefect = (uid: string, updates: Partial<DefectEntry>) => {
     const newTracker = { 
@@ -321,66 +183,58 @@ const DefectReport: React.FC = () => {
   const stats = useMemo(() => {
     const total = defects.length;
     const rectified = defects.filter(d => d.status === 'Rectified').length;
-    return { total, open: total - rectified, rectified, critical: defects.filter(d => d.severity === 'Critical').length, progress: total > 0 ? (rectified / total) * 100 : 100 };
+    return { 
+      total, 
+      open: total - rectified, 
+      rectified, 
+      critical: defects.filter(d => d.severity === 'Critical').length, 
+      progress: total > 0 ? (rectified / total) * 100 : 100 
+    };
   }, [defects]);
 
-  const handleFinalizeClose = () => {
-    setIsClosing(true);
-    setTimeout(() => {
-      if (setupData) {
-        const updatedSetup = { ...setupData, status: InspectionStatus.APPROVED };
-        localStorage.setItem(`setup_${auditId}`, JSON.stringify(updatedSetup));
-      }
-      setIsClosing(false);
-      navigate('/');
-    }, 1500);
-  };
+  if (isLoading) return <div className="h-full flex flex-col items-center justify-center p-10 bg-background-dark"><div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin mb-4" /><p className="text-[10px] font-black uppercase tracking-[0.3em] text-text-muted">Analyzing Technical Core...</p></div>;
 
   return (
     <div className="flex flex-col h-full bg-background-dark overflow-y-auto no-scrollbar pb-32">
-      <TopBar title="Defect Registry" subtitle={`SYNC ID: ${auditId}`} showBack />
-      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" capture="environment" onChange={onPhotoCaptured} />
+      <TopBar title="Defect Registry" subtitle={`REF: ${auditId}`} showBack />
 
       <div className="p-4 flex flex-col gap-6 animate-in fade-in duration-500">
-        <div className="bg-surface-dark p-6 rounded-3xl border border-white/5 shadow-2xl relative overflow-hidden">
+        
+        {/* Master Header Card */}
+        <div className="bg-surface-dark p-6 rounded-[2.5rem] border border-white/5 shadow-2xl relative overflow-hidden">
            <div className="flex justify-between items-start mb-6">
               <div className="min-w-0">
-                 <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em]">Operational Deficiency Matrix</p>
+                 <p className="text-[10px] font-black text-text-muted uppercase tracking-[0.2em]">Master Summary</p>
                  <h1 className="text-2xl font-black italic uppercase text-white tracking-tight truncate">{setupData?.clientName || 'SITE AUDIT'}</h1>
               </div>
-              <button 
-                onClick={handleExportPDF}
-                className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-primary active:scale-90 transition-all hover:bg-primary hover:text-white shrink-0 shadow-lg border border-primary/20"
-                title="Export Defect PDF"
-              >
-                <span className="material-symbols-outlined text-2xl font-bold">picture_as_pdf</span>
-              </button>
+              <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-primary shadow-lg border border-primary/20">
+                 <span className="material-symbols-outlined text-2xl font-bold">analytics</span>
+              </div>
            </div>
+
            <div className="grid grid-cols-3 gap-3 mb-6">
-              <div className="bg-background-dark/50 p-3 rounded-2xl flex flex-col items-center border border-white/5"><span className="text-xl font-black text-white">{stats.total}</span><span className="text-[7px] font-black uppercase text-text-muted">Faults</span></div>
+              <div className="bg-background-dark/50 p-3 rounded-2xl flex flex-col items-center border border-white/5"><span className="text-xl font-black text-white">{stats.total}</span><span className="text-[7px] font-black uppercase text-text-muted">Total</span></div>
               <div className="bg-primary/10 p-3 rounded-2xl border border-primary/20 flex flex-col items-center"><span className="text-xl font-black text-primary">{stats.critical}</span><span className="text-[7px] font-black uppercase text-primary">Critical</span></div>
               <div className="bg-emerald-500/10 p-3 rounded-2xl border border-emerald-500/20 flex flex-col items-center"><span className="text-xl font-black text-emerald-500">{stats.rectified}</span><span className="text-[7px] font-black uppercase text-emerald-500">Fixed</span></div>
            </div>
-           <div className="h-1.5 w-full bg-background-dark rounded-full overflow-hidden"><div className={`h-full transition-all duration-1000 ${stats.open === 0 ? 'bg-emerald-500' : 'bg-primary'}`} style={{ width: `${stats.progress}%` }} /></div>
+
+           <div className="flex items-center justify-between mb-2 px-1">
+              <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">Rectification Progress</span>
+              <span className="text-[10px] font-black text-white italic">{Math.round(stats.progress)}%</span>
+           </div>
+           <div className="h-2 w-full bg-background-dark rounded-full overflow-hidden border border-white/5">
+              <div className={`h-full transition-all duration-1000 ${stats.open === 0 ? 'bg-emerald-500' : 'bg-primary'}`} style={{ width: `${stats.progress}%` }} />
+           </div>
         </div>
 
-        {/* Severity Filter Bar */}
+        {/* Severity Filter */}
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
            {(['All', 'Critical', 'Major', 'Minor'] as const).map(f => (
-             <button 
-               key={f} 
-               onClick={() => setSeverityFilter(f)}
-               className={`px-4 h-9 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shrink-0 border ${
-                 severityFilter === f 
-                   ? 'bg-primary border-primary text-white shadow-lg' 
-                   : 'bg-surface-dark border-white/5 text-text-muted hover:text-white'
-               }`}
-             >
-                {f}
-             </button>
+             <button key={f} onClick={() => setSeverityFilter(f)} className={`px-5 h-10 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all shrink-0 border ${severityFilter === f ? 'bg-primary border-primary text-white shadow-lg' : 'bg-surface-dark border-white/5 text-text-muted hover:bg-white/5'}`}>{f}</button>
            ))}
         </div>
 
+        {/* Grouped Defect List */}
         {(Object.entries(groupedDefects) as [string, DefectEntry[]][]).map(([system, items]) => (
           <div key={system} className="flex flex-col gap-4">
              <div className="flex items-center gap-3 px-2">
@@ -388,43 +242,45 @@ const DefectReport: React.FC = () => {
                 <h3 className="text-[11px] font-black uppercase italic text-white tracking-widest">{system}</h3>
                 <span className="h-[1px] flex-1 bg-white/5" />
              </div>
+
              <div className="flex flex-col gap-4">
                 {items.map((defect) => (
-                   <div key={defect.uid} className={`bg-surface-dark rounded-[2.5rem] border shadow-xl overflow-hidden group transition-all ${defect.status === 'Rectified' ? 'border-emerald-500/20' : 'border-white/5'}`}>
+                   <div key={defect.uid} className={`bg-surface-dark rounded-[2rem] border shadow-xl overflow-hidden group transition-all ${defect.status === 'Rectified' ? 'border-emerald-500/20' : 'border-white/5 hover:border-white/10'}`}>
                       <div className="p-6">
-                         <div className="flex justify-between items-start mb-4">
+                         <div className="flex justify-between items-start mb-5">
                             <div className="flex flex-col min-w-0 pr-4">
-                               <span className="text-[8px] font-black text-text-muted uppercase tracking-widest">{defect.section}</span>
-                               <h4 className="text-sm font-bold uppercase text-white tracking-tight truncate">{defect.itemLabel}</h4>
+                               <span className="text-[8px] font-black text-text-muted uppercase tracking-widest mb-1">{defect.section}</span>
+                               <h4 className="text-sm font-bold uppercase text-white tracking-tight truncate leading-tight">{defect.itemLabel}</h4>
                             </div>
-                            <div className="flex flex-col items-end gap-2">
+                            <div className="flex flex-col items-end gap-2 shrink-0">
                                <select 
                                  value={defect.status} 
                                  onChange={(e) => updateDefect(defect.uid, { status: e.target.value as any })} 
-                                 className={`h-7 rounded-lg border-none text-[8px] font-black uppercase px-2 ${defect.status === 'Open' ? 'bg-primary text-white' : defect.status === 'Rectified' ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-white'}`}
+                                 className={`h-7 rounded-lg border-none text-[8px] font-black uppercase px-3 ${defect.status === 'Open' ? 'bg-primary text-white' : defect.status === 'Rectified' ? 'bg-emerald-600 text-white shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'bg-amber-500 text-white'}`}
                                >
                                   <option value="Open">Open</option><option value="In Progress">In Progress</option><option value="Rectified">Rectified</option>
                                </select>
-                               <select 
-                                 value={defect.severity} 
-                                 onChange={(e) => updateDefect(defect.uid, { severity: e.target.value as any })} 
-                                 className={`h-7 rounded-lg border-none text-[8px] font-black uppercase px-2 ${defect.severity === 'Critical' ? 'bg-red-900/50 text-red-400 border border-red-500/30' : defect.severity === 'Major' ? 'bg-amber-900/50 text-amber-400 border border-amber-500/30' : 'bg-blue-900/50 text-blue-400 border border-blue-500/30'}`}
-                               >
-                                  <option value="Critical">Critical</option><option value="Major">Major</option><option value="Minor">Minor</option>
-                               </select>
+                               <span className={`text-[7px] font-black uppercase px-2 py-0.5 rounded border ${defect.severity === 'Critical' ? 'bg-primary/10 text-primary border-primary/20' : defect.severity === 'Major' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-blue-500/10 text-blue-500 border-blue-500/20'}`}>{defect.severity}</span>
                             </div>
                          </div>
-                         <div className="flex gap-4 mb-4">
-                            <div className="w-20 h-20 bg-background-dark rounded-2xl border border-white/5 shrink-0 overflow-hidden flex items-center justify-center">
-                               {defect.photo ? <img src={defect.photo} className="w-full h-full object-cover" /> : <span className="material-symbols-outlined text-white/10">no_photography</span>}
-                            </div>
-                            <div className="flex-1 min-w-0"><p className={`text-[10px] italic leading-relaxed line-clamp-3 ${defect.status === 'Rectified' ? 'text-emerald-500/60 line-through' : 'text-text-muted'}`}>"{defect.description}"</p></div>
+
+                         {defect.photo && (
+                           <div className="w-full h-48 bg-background-dark rounded-2xl border border-white/5 overflow-hidden mb-4 shadow-inner group-hover:border-primary/20 transition-colors">
+                              <img src={defect.photo} className="w-full h-full object-cover" alt="Defect proof" />
+                           </div>
+                         )}
+
+                         <div className={`p-4 rounded-2xl mb-5 border border-white/5 ${defect.status === 'Rectified' ? 'bg-emerald-500/5' : 'bg-background-dark/40 shadow-inner'}`}>
+                            <p className={`text-[11px] italic leading-relaxed ${defect.status === 'Rectified' ? 'text-emerald-500/60 line-through' : 'text-text-muted font-medium'}`}>"{defect.description}"</p>
                          </div>
+
                          <div className="flex gap-2">
-                            <button onClick={() => navigate(defect.path)} className="flex-1 h-9 bg-white/5 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2">Source</button>
-                            <button onClick={() => { setActivePhotoUid(defect.uid); fileInputRef.current?.click(); }} className="flex-1 h-9 bg-primary/10 border border-primary/20 rounded-xl text-[9px] font-black uppercase text-primary flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-all">
-                               <span className="material-symbols-outlined text-xs">add_a_photo</span>
-                               <span>{defect.photo ? 'Retake' : 'Attach'}</span>
+                            <button onClick={() => navigate(defect.path)} className="flex-1 h-10 bg-white/5 border border-white/5 hover:bg-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
+                               <span className="material-symbols-outlined text-sm">open_in_new</span>
+                               <span>Jump to Source</span>
+                            </button>
+                            <button onClick={() => navigate(defect.path)} className="w-10 h-10 bg-primary/10 border border-primary/20 text-primary rounded-xl flex items-center justify-center transition-all hover:bg-primary hover:text-white">
+                               <span className="material-symbols-outlined text-sm">edit</span>
                             </button>
                          </div>
                       </div>
@@ -433,21 +289,20 @@ const DefectReport: React.FC = () => {
              </div>
           </div>
         ))}
-        {filteredDefects.length === 0 && !isLoading && (
-          <div className="py-20 flex flex-col items-center justify-center opacity-20 grayscale">
-             <span className="material-symbols-outlined text-7xl">rule</span>
-             <p className="text-xs font-black uppercase tracking-[0.4em] mt-4">No {severityFilter !== 'All' ? severityFilter : ''} Deficiencies Found</p>
+
+        {filteredDefects.length === 0 && (
+          <div className="py-24 flex flex-col items-center justify-center opacity-20 grayscale">
+             <span className="material-symbols-outlined text-8xl mb-4">task_alt</span>
+             <p className="text-xs font-black uppercase tracking-[0.5em] mt-4">Zero Defects Found</p>
           </div>
         )}
       </div>
 
-      <div className="fixed bottom-0 w-full max-w-md bg-background-dark/95 backdrop-blur-xl border-t border-white/5 p-6 pb-12 z-50 flex flex-col gap-3">
-        {stats.open === 0 && (
-          <button onClick={handleFinalizeClose} disabled={isClosing} className="w-full h-14 bg-emerald-600 text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-lg flex items-center justify-center gap-3">
-            {isClosing ? 'Closing Dossier...' : 'Approve & Close Audit'}
-          </button>
-        )}
-        <button onClick={() => navigate(`/checklist/${auditId}`)} className="w-full h-12 bg-white/5 border border-white/10 text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-2xl flex items-center justify-center gap-3">Return to Hub</button>
+      <div className="fixed bottom-0 w-full max-w-md bg-background-dark/95 backdrop-blur-xl border-t border-white/5 p-6 pb-12 z-50">
+        <button onClick={() => navigate(`/checklist/${auditId}`)} className="w-full h-14 bg-white/5 border border-white/10 text-white font-black uppercase tracking-[0.2em] text-[10px] rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all">
+           <span className="material-symbols-outlined text-sm">hub</span>
+           <span>Return to Systems Hub</span>
+        </button>
       </div>
     </div>
   );

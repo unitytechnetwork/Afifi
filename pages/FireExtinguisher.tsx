@@ -11,7 +11,6 @@ interface Extinguisher {
   weight: string;
   location: string;
   expiry: string;
-  lastServiceDate: string;
   mfgMonth: string;
   mfgYear: string;
   pressure: 'Normal' | 'Low';
@@ -32,9 +31,8 @@ const FireExtinguisher: React.FC = () => {
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [isAiProcessing, setIsAiProcessing] = useState(false);
 
-  // Updated default technical description as requested
+  const [setupData, setSetupData] = useState<any>(null);
   const [systemDescription, setSystemDescription] = useState('Portable fire extinguishers are provided as first-aid firefighting equipment to control incipient fires. Inspection was carried out to verify unit condition, pressure indication, hose and nozzle integrity, mounting arrangement, and service validity.');
-  
   const [systemOverallStatus, setSystemOverallStatus] = useState<'Normal' | 'Faulty' | 'Partial' | 'N/A'>('Normal');
   const [overallRemarks, setOverallRemarks] = useState('');
   const [servicePhotos, setServicePhotos] = useState<string[]>(['', '', '', '']);
@@ -46,7 +44,6 @@ const FireExtinguisher: React.FC = () => {
     weight: '9kg',
     location: '',
     expiry: '', 
-    lastServiceDate: new Date().toISOString().split('T')[0],
     mfgMonth: (new Date().getMonth() + 1).toString().padStart(2, '0'),
     mfgYear: new Date().getFullYear().toString(),
     pressure: 'Normal' as const, 
@@ -59,45 +56,47 @@ const FireExtinguisher: React.FC = () => {
     photos: {}
   });
 
-  const [items, setItems] = useState<Extinguisher[]>(() => {
+  const [items, setItems] = useState<Extinguisher[]>([]);
+
+  useEffect(() => {
+    const savedSetup = localStorage.getItem(`setup_${auditId}`);
+    if (savedSetup) {
+      const parsedSetup = JSON.parse(savedSetup);
+      setSetupData(parsedSetup);
+    }
+
     const saved = localStorage.getItem(`extinguisher_${auditId}`);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         const savedItems = Array.isArray(parsed) ? parsed : (parsed.items || []);
-        return savedItems.map((item: any) => ({
+        setItems(savedItems.map((item: any) => ({
           ...getDefaultItem(),
           ...item,
           photos: item.photos || {},
           remarks: item.remarks || {}
-        }));
-      } catch (e) { console.error(e); }
-    }
-    return [getDefaultItem()];
-  });
-
-  useEffect(() => {
-    const saved = localStorage.getItem(`extinguisher_${auditId}`);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
+        })));
         if (parsed.systemDescription) setSystemDescription(parsed.systemDescription);
         if (parsed.systemOverallStatus) setSystemOverallStatus(parsed.systemOverallStatus);
         if (parsed.overallRemarks) setOverallRemarks(parsed.overallRemarks);
         if (parsed.servicePhotos) setServicePhotos(parsed.servicePhotos);
-      } catch (e) {}
+      } catch (e) { console.error(e); }
+    } else {
+      setItems([getDefaultItem()]);
     }
   }, [auditId]);
 
   useEffect(() => {
-    const dataToSave = { 
-      items, 
-      systemDescription, 
-      systemOverallStatus, 
-      overallRemarks, 
-      servicePhotos 
-    };
-    localStorage.setItem(`extinguisher_${auditId}`, JSON.stringify(dataToSave));
+    if (items.length > 0) {
+      const dataToSave = { 
+        items, 
+        systemDescription, 
+        systemOverallStatus, 
+        overallRemarks, 
+        servicePhotos 
+      };
+      localStorage.setItem(`extinguisher_${auditId}`, JSON.stringify(dataToSave));
+    }
   }, [items, systemDescription, systemOverallStatus, overallRemarks, servicePhotos, auditId]);
 
   const updateItem = (itemId: string, updates: Partial<Extinguisher>) => {
@@ -230,7 +229,7 @@ const FireExtinguisher: React.FC = () => {
                         onPhoto={(p:string) => updateItem(item.id, { photos: {...item.photos, bombaCert: p} })}
                       />
                       <div className="flex items-center gap-2 bg-background-dark/30 p-2 rounded-xl">
-                         <span className="text-[8px] font-black text-text-muted uppercase ml-2">Cert Expiry:</span>
+                         <span className="text-[8px] font-black text-text-muted uppercase ml-2">Cert Expiry (Penting):</span>
                          <input 
                            type="date" 
                            value={item.bombaCertExpiry} 

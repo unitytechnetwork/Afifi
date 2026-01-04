@@ -119,6 +119,21 @@ const GasSuppression: React.FC = () => {
     setSystems(prev => prev.map(s => s.id === activeSystemId ? { ...s, ...updates } : s));
   };
 
+  const deleteSystem = (e: React.MouseEvent, sid: string) => {
+    e.stopPropagation();
+    if (systems.length <= 1) {
+      alert("Sistem terakhir tidak boleh dipadam.");
+      return;
+    }
+    if (window.confirm("Padam checksheet untuk zon ini? Semua data zon ini akan hilang.")) {
+      const newSystems = systems.filter(s => s.id !== sid);
+      setSystems(newSystems);
+      if (activeSystemId === sid) {
+        setActiveSystemId(newSystems[0].id);
+      }
+    }
+  };
+
   const updateIntegrationItem = (itemId: string, itemUpdates: Partial<IntegrationItem>) => {
     if (!activeSystem) return;
     const updatedItems = activeSystem.integrationItems.map(item => item.id === itemId ? { ...item, ...itemUpdates } : item);
@@ -139,9 +154,23 @@ const GasSuppression: React.FC = () => {
         {/* Zone Selector */}
         <section className="bg-surface-dark p-2 rounded-2xl border border-white/5 flex gap-2 overflow-x-auto no-scrollbar">
            {systems.map((s, idx) => (
-              <button key={s.id} onClick={() => setActiveSystemId(s.id)} className={`flex-shrink-0 px-5 h-11 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeSystemId === s.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-background-dark/50 text-text-muted hover:bg-white/5'}`}>
-                 <span className="material-symbols-outlined text-sm">{activeSystemId === s.id ? 'settings_suggest' : 'gas_meter'}</span>{s.zoneName || `Zone ${idx + 1}`}
-              </button>
+              <div key={s.id} className="relative shrink-0">
+                <button 
+                  onClick={() => setActiveSystemId(s.id)} 
+                  className={`px-5 h-11 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 pr-10 ${activeSystemId === s.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-background-dark/50 text-text-muted hover:bg-white/5'}`}
+                >
+                   <span className="material-symbols-outlined text-sm">{activeSystemId === s.id ? 'settings_suggest' : 'gas_meter'}</span>
+                   {s.zoneName || `Zone ${idx + 1}`}
+                </button>
+                {systems.length > 1 && (
+                  <button 
+                    onClick={(e) => deleteSystem(e, s.id)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-white/20 hover:text-primary transition-colors bg-black/20 rounded-full"
+                  >
+                    <span className="material-symbols-outlined text-xs">close</span>
+                  </button>
+                )}
+              </div>
            ))}
            <button onClick={() => { const ns = getDefaultSystem(); setSystems([...systems, ns]); setActiveSystemId(ns.id); }} className="flex-shrink-0 px-4 h-11 rounded-xl bg-white/5 border border-white/10 text-primary flex items-center justify-center active:scale-95"><span className="material-symbols-outlined">add</span></button>
         </section>
@@ -289,7 +318,7 @@ const IntegrationFaultRow: React.FC<{ item: IntegrationItem; onUpdate: (upd: Par
        </div>
        {isFaulty && (
          <div className="flex gap-3 pt-4 animate-in slide-in-from-top duration-300">
-            <div onClick={() => cameraRef.current?.click()} className="w-16 h-16 bg-background-dark rounded-xl border border-primary/20 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer hover:border-primary/50">{item.photo ? <img src={item.photo} className="w-full h-full object-cover" /> : <span className="material-symbols-outlined text-primary/40 text-lg">add_a_photo</span>}<input type="file" ref={cameraRef} className="hidden" accept="image/*" capture="environment" onChange={handleCapture} /></div>
+            <div onClick={() => cameraRef.current?.click()} className="w-16 h-16 bg-background-dark rounded-xl border border-primary/20 flex items-center justify-center overflow-hidden shrink-0 cursor-pointer hover:border-primary/50">{item.photo ? <img src={item.photo} className="w-full h-full object-cover" /> : <span className="material-symbols-outlined text-primary/40 text-lg">add_a_photo</span>}<input type="file" ref={cameraRef} className="hidden" accept="image/*" onChange={handleCapture} /></div>
             <textarea value={item.remarks || ''} onChange={(e) => onUpdate({ remarks: e.target.value })} className="flex-1 bg-background-dark/50 border-none rounded-xl text-[9px] p-2 h-16 text-white focus:ring-1 focus:ring-primary placeholder:text-white/10" placeholder="Detail the fault..." />
          </div>
        )}
@@ -314,7 +343,7 @@ const PhotoCaptureBox: React.FC<{ photo?: string; onCapture: (p: string) => void
       ) : (
         <span className="material-symbols-outlined text-primary/40 text-lg">add_a_photo</span>
       )}
-      <input type="file" ref={fileRef} className="hidden" accept="image/*" capture="environment" onChange={handleFile} />
+      <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={handleFile} />
     </div>
   );
 };
@@ -331,7 +360,7 @@ const PhotoUploader: React.FC<{ photos: string[]; onPhotosChange: (p: string[]) 
     }
   };
   const slots = [0, 1, 2, 3];
-  return (<div className="grid grid-cols-4 gap-3">{slots.map((idx) => (<div key={idx} onClick={() => { setActiveIdx(idx); cameraRef.current?.click(); }} className={`aspect-square bg-background-dark rounded-2xl border border-dashed flex flex-col items-center justify-center overflow-hidden cursor-pointer active:scale-95 transition-all group relative ${photos[idx] ? 'border-primary/40' : 'border-white/10 hover:border-primary/40'}`}>{photos[idx] ? (<><img src={photos[idx]} className="w-full h-full object-cover" /><button onClick={(e) => { e.stopPropagation(); const p = photos.filter((_, i) => i !== idx); onPhotosChange(p); }} className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center text-white"><span className="material-symbols-outlined text-[12px]">close</span></button></>) : (<><span className="material-symbols-outlined text-xl opacity-20 group-hover:opacity-100 transition-opacity">add_a_photo</span></>)}</div>))}<input type="file" ref={cameraRef} className="hidden" accept="image/*" capture="environment" onChange={handleCapture} /></div>);
+  return (<div className="grid grid-cols-4 gap-3">{slots.map((idx) => (<div key={idx} onClick={() => { setActiveIdx(idx); cameraRef.current?.click(); }} className={`aspect-square bg-background-dark rounded-2xl border border-dashed flex flex-col items-center justify-center overflow-hidden cursor-pointer active:scale-95 transition-all group relative ${photos[idx] ? 'border-primary/40' : 'border-white/10 hover:border-primary/40'}`}>{photos[idx] ? (<><img src={photos[idx]} className="w-full h-full object-cover" /><button onClick={(e) => { e.stopPropagation(); const p = photos.filter((_, i) => i !== idx); onPhotosChange(p); }} className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center text-white"><span className="material-symbols-outlined text-[12px]">close</span></button></>) : (<><span className="material-symbols-outlined text-xl opacity-20 group-hover:opacity-100 transition-opacity">add_a_photo</span></>)}</div>))}<input type="file" ref={cameraRef} className="hidden" accept="image/*" onChange={handleCapture} /></div>);
 }
 
 export default GasSuppression;

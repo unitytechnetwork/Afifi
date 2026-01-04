@@ -119,7 +119,6 @@ const PumpSystem: React.FC = () => {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        // Handle migration from single object to array
         if (parsed && !Array.isArray(parsed) && parsed.dutyUnit) {
           return [{
             ...firstDefault,
@@ -164,8 +163,11 @@ const PumpSystem: React.FC = () => {
 
   const deletePumpSet = (e: React.MouseEvent, pumpId: string) => {
     e.stopPropagation();
-    if (systems.length <= 1) return;
-    if (window.confirm("Confirm: Remove this pump checksheet?")) {
+    if (systems.length <= 1) {
+       alert("Sistem terakhir tidak boleh dipadam.");
+       return;
+    }
+    if (window.confirm("Padam checksheet untuk pump set ini? Semua data pump set ini akan hilang.")) {
       const newSystems = systems.filter(s => s.id !== pumpId);
       setSystems(newSystems);
       if (activeSystemId === pumpId) {
@@ -185,7 +187,7 @@ const PumpSystem: React.FC = () => {
         {/* Pump Set Selector Bar */}
         <section className="bg-surface-dark p-2 rounded-2xl border border-white/5 flex gap-2 overflow-x-auto no-scrollbar">
            {systems.map((s, idx) => (
-              <div key={s.id} className="relative group flex-shrink-0">
+              <div key={s.id} className="relative shrink-0">
                 <button 
                   onClick={() => setActiveSystemId(s.id)} 
                   className={`px-5 h-11 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 pr-10 ${activeSystemId === s.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-background-dark/50 text-text-muted hover:bg-white/5'}`}
@@ -196,7 +198,7 @@ const PumpSystem: React.FC = () => {
                 {systems.length > 1 && (
                   <button 
                     onClick={(e) => deletePumpSet(e, s.id)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-white/20 hover:text-primary transition-colors"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 w-6 h-6 flex items-center justify-center text-white/20 hover:text-primary transition-colors bg-black/20 rounded-full"
                   >
                     <span className="material-symbols-outlined text-xs">close</span>
                   </button>
@@ -492,7 +494,7 @@ const PhotoCaptureBox: React.FC<{ photo?: string; onCapture: (p: string) => void
       ) : (
         <span className="material-symbols-outlined text-primary/40 text-lg">add_a_photo</span>
       )}
-      <input type="file" ref={fileRef} className="hidden" accept="image/*" capture="environment" onChange={handleFile} />
+      <input type="file" ref={fileRef} className="hidden" accept="image/*" onChange={handleFile} />
     </div>
   );
 };

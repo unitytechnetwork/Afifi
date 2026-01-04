@@ -52,7 +52,10 @@ const SubmissionSuccess: React.FC = () => {
           const data = localStorage.getItem(key);
           if (data) {
             const parsed = JSON.parse(data);
-            if (parsed && !parsed.isNA) aggregated[label] = parsed;
+            if (parsed) {
+               if (parsed.isNA) return; 
+               aggregated[label] = parsed;
+            }
           }
         } catch (e) {}
       });
@@ -91,11 +94,27 @@ const SubmissionSuccess: React.FC = () => {
     `;
   };
 
+  const formatKey = (key: string) => {
+    return key
+      .replace(/([A-Z])/g, ' $1')
+      .replace('Status', '')
+      .replace('Outcome', '')
+      .replace('mfg', 'MFG')
+      .toUpperCase()
+      .trim();
+  };
+
   const handleExport = (type: 'pdf' | 'excel') => {
     const site = setupData?.clientName?.toUpperCase() || 'N/A';
     const date = setupData?.date || 'N/A';
     const tech = setupData?.techName || 'N/A';
-    const cycle = setupData?.frequency || 'Monthly';
+    const cycle = setupData?.frequency || 'N/A';
+    
+    // Sign-off data
+    const clientRep = setupData?.clientRepName || 'N/A';
+    const clientAuthDate = setupData?.clientAuthDate || date;
+    const clientSig = setupData?.clientSigData;
+    const techSig = setupData?.techSigData;
 
     const renderImageGrid = (photos: string[]) => {
       let gridHtml = '';
@@ -127,182 +146,108 @@ const SubmissionSuccess: React.FC = () => {
     };
 
     let reportSections = '';
-    let faultSummaryRows = '';
-    let inventorySectionHtml = '';
 
-    const addFaultRow = (label: string, section: string, item: string, desc: string, status: string, photo?: string) => {
-      faultSummaryRows += `
-        <tr>
-          <td style="font-weight:900; font-size:7pt; color:#ec1313; border: 1pt solid #cbd5e1;">${label.toUpperCase()}</td>
-          <td style="font-weight:bold; font-size:7pt; border: 1pt solid #cbd5e1;">${section}</td>
-          <td style="font-weight:black; font-size:8pt; border: 1pt solid #cbd5e1;">${item}</td>
-          <td style="font-style:italic; font-size:8pt; border: 1pt solid #cbd5e1;">${desc || 'Fault detected.'}</td>
-          <td style="${getStatusStyle(status)}; border: 1pt solid #cbd5e1; text-align:center;">${status}</td>
-        </tr>
-        ${photo ? renderImg(photo, `Fault Proof: ${item}`, true) : ''}
-      `;
-    };
+    Object.entries(fullReportData).forEach(([label, systemData]: [string, any]) => {
+      if (!systemData) return;
 
-    Object.entries(fullReportData).forEach(([label, data]: [string, any]) => {
-      if (!data) return;
+      const isPump = label.includes('Pump');
+      const isGas = label.includes('Gas');
+      const isFireAlarm = label.includes('Fire Alarm');
 
-      // --- 1. INVENTORY MAPPING ---
-      let systemInventoryRows = '';
-      if (label.includes('Main Fire Alarm')) {
-        data.zones?.forEach((z: any) => {
-          const counts = [`Smoke: ${z.smokeQty||0}`, `Heat: ${z.heatQty||0}`, `Bell: ${z.bellQty||0}`, `BG: ${z.breakglassQty||0}`];
-          systemInventoryRows += `<tr><td style="font-weight:bold; border:1pt solid #cbd5e1;">${z.name} (Zone ${z.zoneNo})</td><td colspan="5" style="border:1pt solid #cbd5e1;">${counts.join(' | ')}</td></tr>`;
+      if (isFireAlarm) {
+        const panels = Array.isArray(systemData) ? systemData : [systemData];
+        panels.forEach((unit: any, unitIdx: number) => {
+          const unitName = unit.systemName || `PANEL #${unitIdx + 1}`;
+          let tableRows = `<tr class="page-break"><td colspan="6" class="section-header" style="background:#ec1313; text-align:center; padding:20px; font-size:16pt !important; border: 2pt solid #000;">SYSTEM TECHNICAL CHECK SHEET: ${label.toUpperCase()} (${unitName.toUpperCase()})</td></tr>`;
+          tableRows += `<tr style="background:#f8fafc;"><td class="label">OVERALL STATUS</td><td style="${getStatusStyle(unit.systemOverallStatus || 'Normal')}">${unit.systemOverallStatus || 'Normal'}</td><td class="label">TECHNICAL DESCRIPTION</td><td colspan="3" style="font-size:7.5pt; font-style:italic;">${unit.systemDescription || 'Standard maintenance verify.'}</td></tr>`;
+          
+          const specs = unit.panelSpecs || {};
+          tableRows += `<tr><td colspan="6" class="section-header" style="background:#475569; font-size:7.5pt;">PART I: PANEL HARDWARE & POWER</td></tr>`;
+          tableRows += `<tr><td class="label">MODEL</td><td>${specs.model}</td><td class="label">TOTAL ZONES</td><td>${specs.totalZones}</td><td class="label">LOCATION</td><td>${specs.location}</td></tr>`;
+          tableRows += `<tr><td class="label">BATT VOLT</td><td style="${getStatusStyle(specs.batteryVolt)}">${specs.batteryVolt}V</td><td class="label">CHARGER</td><td style="${getStatusStyle(specs.chargerVolt)}">${specs.chargerVolt}V</td><td class="label">BATT STATUS</td><td style="${getStatusStyle(specs.batteryStatus)}">${specs.batteryStatus}</td></tr>`;
+          if (specs.batteryPhoto) tableRows += renderImg(specs.batteryPhoto, 'Standby Battery Proof', true);
+          
+          if (unit.indicators) {
+             tableRows += `<tr><td colspan="6" class="section-header" style="background:#1e293b; font-size:7.5pt;">PART II: INTEGRATION SIGNALS</td></tr>`;
+             unit.indicators.forEach((ind: any) => {
+                tableRows += `<tr><td class="label">${ind.category}</td><td colspan="3">${ind.label}</td><td class="label">STATUS</td><td style="${getStatusStyle(ind.status)}">${ind.status}</td></tr>`;
+             });
+          }
+          if (unit.zones) {
+             tableRows += `<tr><td colspan="6" class="section-header" style="background:#1e293b; font-size:7.5pt;">PART III: ZONE REGISTRY</td></tr>`;
+             unit.zones.forEach((z: any) => {
+                tableRows += `<tr><td class="label">ZONE ${z.zoneNo}</td><td>${z.name}</td><td class="label">STATUS</td><td style="${getStatusStyle(z.status)}">${z.status}</td><td class="label">DEVICES</td><td>S:${z.smokeQty} H:${z.heatQty} B:${z.bellQty} BG:${z.breakglassQty}</td></tr>`;
+             });
+          }
+          if (unit.overallRemarks) tableRows += `<tr><td class="label">SUMMARY</td><td colspan="5" style="font-size:7.5pt; padding:10px;">${unit.overallRemarks}</td></tr>`;
+          if (unit.servicePhotos) tableRows += renderImageGrid(unit.servicePhotos);
+          reportSections += `<table class="main-table">${tableRows}</table>`;
         });
-      } else if (label.includes('Gas Suppression')) {
-        const gasSys = Array.isArray(data) ? data : [data];
-        gasSys.forEach((s: any) => {
-          const counts = [`Smoke: ${s.smokeQty||0}`, `Heat: ${s.heatQty||0}`, `Bell: ${s.bellQty||0}`, `Flash: ${s.flashingLightQty||0}`];
-          systemInventoryRows += `<tr><td style="font-weight:bold; border:1pt solid #cbd5e1;">${s.zoneName || 'Server Room'}</td><td colspan="5" style="border:1pt solid #cbd5e1;">${counts.join(' | ')}</td></tr>`;
-        });
-      } else if (label.includes('Pump')) {
-        const units = [];
-        if (data.jockeyUnit) units.push('Jockey Pump');
-        if (data.dutyUnit) units.push('Duty Pump');
-        if (data.standbyUnit) units.push('Standby Pump');
-        systemInventoryRows += `<tr><td style="font-weight:bold; border:1pt solid #cbd5e1;">${data.location || 'Pump Room'}</td><td colspan="5" style="border:1pt solid #cbd5e1;">${units.join(' | ')}</td></tr>`;
-      } else {
-        const items = Array.isArray(data) ? data : (data.items || []);
-        const locMap: Record<string, Record<string, number>> = {};
-        items.forEach((item: any) => {
-          const loc = item.location || 'Unspecified';
-          const type = item.type || item.brand || label.replace(' Assets', '');
-          if (!locMap[loc]) locMap[loc] = {};
-          locMap[loc][type] = (locMap[loc][type] || 0) + 1;
-        });
-        Object.entries(locMap).forEach(([loc, types]) => {
-          const counts = Object.entries(types).map(([t, c]) => `${t}: ${c}`);
-          systemInventoryRows += `<tr><td style="font-weight:bold; border:1pt solid #cbd5e1;">${loc}</td><td colspan="5" style="border:1pt solid #cbd5e1;">${counts.join(' | ')}</td></tr>`;
-        });
-      }
-      if (systemInventoryRows) {
-        inventorySectionHtml += `<tr style="background:#f1f5f9;"><td colspan="6" style="font-weight:900; font-size:7.5pt; color:#1e293b; padding:8px; border:1.5pt solid #000;">${label.toUpperCase()}</td></tr>${systemInventoryRows}`;
-      }
-
-      // --- 2. TECHNICAL DETAIL PROCESSING ---
-      let tableRows = `<tr class="page-break"><td colspan="6" class="section-header" style="background:#ec1313; text-align:center; padding:12px;">SYSTEM TECHNICAL CHECK SHEET: ${label}</td></tr>`;
-      
-      // Header Info with technical description
-      tableRows += `<tr style="background:#f8fafc;"><td class="label">OVERALL STATUS</td><td style="${getStatusStyle(data.systemOverallStatus || 'Normal')}">${data.systemOverallStatus || 'Normal'}</td><td class="label">TECHNICAL DESCRIPTION</td><td colspan="3" style="font-size:7.5pt; font-style:italic;">${data.systemDescription || 'As per field log.'}</td></tr>`;
-
-      if (label.includes('Main Fire Alarm')) {
-        tableRows += `<tr><td colspan="6" class="section-header" style="background:#475569; font-size:7.5pt;">PART I: PANEL HARDWARE & POWER</td></tr>`;
-        tableRows += `<tr><td class="label">MODEL</td><td>${data.panelSpecs?.model}</td><td class="label">TOTAL ZONES</td><td>${data.panelSpecs?.totalZones}</td><td class="label">LOCATION</td><td>${data.panelSpecs?.location}</td></tr>`;
-        tableRows += `<tr><td class="label">BATT VOLT</td><td style="${getStatusStyle(data.panelSpecs?.batteryVolt)}">${data.panelSpecs?.batteryVolt}V</td><td class="label">CHARGER</td><td style="${getStatusStyle(data.panelSpecs?.chargerVolt)}">${data.panelSpecs?.chargerVolt}V</td><td class="label">BATT STATUS</td><td style="${getStatusStyle(data.panelSpecs?.batteryStatus)}">${data.panelSpecs?.batteryStatus}</td></tr>`;
-        if (data.panelSpecs?.batteryPhoto) tableRows += renderImg(data.panelSpecs.batteryPhoto, 'Standby Battery Proof', true);
-        
-        if (DEFECT_TERMS.some(t => String(data.panelSpecs?.batteryStatus).includes(t))) addFaultRow(label, 'Panel', 'Battery', data.panelSpecs.batteryRemarks, data.panelSpecs.batteryStatus, data.panelSpecs.batteryPhoto);
-        
-        if (data.indicators) {
-           tableRows += `<tr><td colspan="6" class="section-header" style="background:#1e293b; font-size:7.5pt;">PART II: INTEGRATION SIGNALS</td></tr>`;
-           data.indicators.forEach((ind: any) => {
-              tableRows += `<tr><td class="label">${ind.category}</td><td colspan="3">${ind.label}</td><td class="label">STATUS</td><td style="${getStatusStyle(ind.status)}">${ind.status}</td></tr>`;
-              if (DEFECT_TERMS.some(t => String(ind.status).includes(t))) {
-                addFaultRow(label, 'Signal', ind.label, ind.remarks, ind.status, ind.photo);
-                if (ind.photo) tableRows += renderImg(ind.photo, `${ind.label} Fault`, true);
-              }
-           });
-        }
-        
-        if (data.zones) {
-           tableRows += `<tr><td colspan="6" class="section-header" style="background:#1e293b; font-size:7.5pt;">PART III: ZONE REGISTRY</td></tr>`;
-           data.zones.forEach((z: any) => {
-              tableRows += `<tr><td class="label">ZONE ${z.zoneNo}</td><td>${z.name}</td><td class="label">STATUS</td><td style="${getStatusStyle(z.status)}">${z.status}</td><td class="label">DEVICES</td><td>S:${z.smokeQty} H:${z.heatQty} B:${z.bellQty} BG:${z.breakglassQty}</td></tr>`;
-              if (DEFECT_TERMS.some(t => String(z.status).includes(t))) {
-                addFaultRow(label, `Zone ${z.zoneNo}`, z.name, z.remarks, z.status, z.photo);
-                if (z.photo) tableRows += renderImg(z.photo, `Zone ${z.zoneNo} Defect`, true);
-              }
-           });
-        }
       } 
-      else if (label.includes('Gas Suppression')) {
-        const gasSys = Array.isArray(data) ? data : [data];
-        gasSys.forEach((s: any) => {
-          tableRows += `<tr><td colspan="6" class="section-header" style="background:#475569; font-size:7.5pt;">GAS UNIT: ${s.zoneName}</td></tr>`;
-          tableRows += `<tr><td class="label">VOLT</td><td>${s.batteryVolt}V</td><td class="label">CHG</td><td>${s.chargerVolt}V</td><td class="label">TIMER</td><td>${s.dischargeTimer}</td></tr>`;
-          if (s.integrationItems) {
-            s.integrationItems.forEach((i: any) => {
+      else if (isGas) {
+        const gasUnits = Array.isArray(systemData) ? systemData : [systemData];
+        gasUnits.forEach((unit: any) => {
+          let tableRows = `<tr class="page-break"><td colspan="6" class="section-header" style="background:#ec1313; text-align:center; padding:20px; font-size:16pt !important; border: 2pt solid #000;">SYSTEM TECHNICAL CHECK SHEET: ${label.toUpperCase()} (${(unit.zoneName || 'Server Room').toUpperCase()})</td></tr>`;
+          tableRows += `<tr><td class="label">MODEL</td><td>${unit.panelModel}</td><td class="label">VOLT</td><td>${unit.batteryVolt}V</td><td class="label">CHG</td><td>${unit.chargerVolt}V</td></tr>`;
+          tableRows += `<tr><td class="label">TIMER</td><td>${unit.dischargeTimer}</td><td class="label">CYL QTY</td><td>${unit.cylinderQty}</td><td class="label">AGENT</td><td>${unit.agentType}</td></tr>`;
+          if (unit.integrationItems) {
+            tableRows += `<tr><td colspan="6" class="section-header" style="background:#1e293b; font-size:7.5pt;">PART II: INTEGRATION LOGIC</td></tr>`;
+            unit.integrationItems.forEach((i: any) => {
                tableRows += `<tr><td class="label">LOGIC</td><td colspan="3">${i.label}</td><td class="label">STATUS</td><td style="${getStatusStyle(i.status)}">${i.status}</td></tr>`;
-               if (DEFECT_TERMS.some(t => String(i.status).includes(t))) {
-                  addFaultRow(label, s.zoneName, i.label, i.remarks, i.status, i.photo);
-                  if (i.photo) tableRows += renderImg(i.photo, `${i.label} Proof`, true);
-               }
             });
           }
-          if (s.servicePhotos) tableRows += renderImageGrid(s.servicePhotos);
+          if (unit.overallRemarks) tableRows += `<tr><td class="label">SUMMARY</td><td colspan="5" style="font-size:7.5pt; padding:10px;">${unit.overallRemarks}</td></tr>`;
+          if (unit.servicePhotos) tableRows += renderImageGrid(unit.servicePhotos);
+          reportSections += `<table class="main-table">${tableRows}</table>`;
         });
       }
-      else if (label.includes('Pump')) {
-        tableRows += `<tr><td class="label">LOCATION</td><td colspan="2" style="font-weight:900;">${data.location || 'Pump Room'}</td><td class="label">HEADER PRES.</td><td colspan="2" style="font-size:12pt; font-weight:900; color:#059669;">${data.headerPressure} BAR</td></tr>`;
-        const units = [{ n: 'JOCKEY', u: data.jockeyUnit }, { n: 'DUTY', u: data.dutyUnit }, { n: 'STANDBY', u: data.standbyUnit }].filter(x => x.u);
-
-        units.forEach(p => {
-          tableRows += `<tr><td colspan="6" class="section-header" style="background:#475569; font-size:7.5pt;">${p.n} PUMP (${p.u.type})</td></tr>`;
-          tableRows += `<tr><td class="label">MODE</td><td>${p.u.mode}</td><td class="label">STATUS</td><td style="${getStatusStyle(p.u.status)}">${p.u.status}</td><td class="label">${p.u.type === 'Electric' ? 'AMP' : 'FUEL'}</td><td style="font-weight:900;">${p.u.loadValue}${p.u.type === 'Electric' ? 'A' : '%'}</td></tr>`;
-          tableRows += `<tr><td class="label">CUT-IN</td><td>${p.u.cutIn} BAR</td><td class="label">CUT-OUT</td><td>${p.u.cutOut} BAR</td><td class="label">REMARKS</td><td style="font-size:7pt;">${p.u.remarks || 'Normal'}</td></tr>`;
-          if (p.u.photo) tableRows += renderImg(p.u.photo, `${p.n} Pump Proof`, true);
-          if (DEFECT_TERMS.some(t => String(p.u.status).includes(t))) {
-            addFaultRow(label, 'Mechanical', `${p.n} Pump`, p.u.remarks, p.u.status, p.u.photo);
-          }
+      else if (isPump) {
+        const pumps = Array.isArray(systemData) ? systemData : [systemData];
+        pumps.forEach((unit: any) => {
+          let tableRows = `<tr class="page-break"><td colspan="6" class="section-header" style="background:#ec1313; text-align:center; padding:20px; font-size:16pt !important; border: 2pt solid #000;">SYSTEM TECHNICAL CHECK SHEET: ${label.toUpperCase()} (${(unit.systemName || 'Pump Set').toUpperCase()})</td></tr>`;
+          tableRows += `<tr><td class="label">LOCATION</td><td colspan="2" style="font-weight:bold;">${unit.location || 'Pump Room'}</td><td class="label">HEADER PRES.</td><td colspan="2" style="font-size:12pt; font-weight:900; color:#059669;">${unit.headerPressure} BAR</td></tr>`;
+          tableRows += `<tr><td colspan="6" class="section-header" style="background:#475569; font-size:7.5pt;">PART I: EQUIPMENT RATINGS</td></tr>`;
+          tableRows += `<tr><td class="label">JOCKEY</td><td>${unit.jockeyRating || 'N/A'}</td><td class="label">MOTOR</td><td>${unit.motorRating || 'N/A'}</td><td class="label">ENGINE</td><td>${unit.engineRating || 'N/A'}</td></tr>`;
+          const pumpUnits = [{ n: 'JOCKEY', u: unit.jockeyUnit }, { n: 'DUTY', u: unit.dutyUnit }, { n: 'STANDBY', u: unit.standbyUnit }].filter(x => x.u);
+          pumpUnits.forEach(p => {
+            tableRows += `<tr><td colspan="6" class="section-header" style="background:#1e293b; font-size:7.5pt;">${p.n} PUMP UNIT (${p.u.type.toUpperCase()})</td></tr>`;
+            tableRows += `<tr><td class="label">MODE</td><td>${p.u.mode}</td><td class="label">STATUS</td><td style="${getStatusStyle(p.u.status)}">${p.u.status}</td><td class="label">${p.u.type === 'Electric' ? 'LOAD (AMP)' : 'FUEL (%)'}</td><td style="font-weight:900;">${p.u.loadValue}${p.u.type === 'Electric' ? 'A' : '%'}</td></tr>`;
+            tableRows += `<tr><td class="label">CUT-IN</td><td style="color:#ec1313; font-weight:bold;">${p.u.cutIn} BAR</td><td class="label">CUT-OUT</td><td style="color:#059669; font-weight:bold;">${p.u.cutOut} BAR</td><td colspan="2"></td></tr>`;
+            if (p.u.type === 'Diesel') tableRows += `<tr><td class="label">BATT VOLT</td><td>${p.u.batteryVolt}V</td><td class="label">CHG VOLT</td><td>${p.u.chargerVolt}V</td><td colspan="2"></td></tr>`;
+            if (p.u.photo) tableRows += renderImg(p.u.photo, `${p.n} Unit Proof`, true);
+          });
+          tableRows += `<tr><td colspan="6" class="section-header" style="background:#475569; font-size:7.5pt;">PART III: MECHANICAL INTEGRITY</td></tr>`;
+          tableRows += `<tr><td class="label">VIBRATION</td><td style="${getStatusStyle(unit.pumpVibration)}">${unit.pumpVibration}</td><td class="label">NOISE</td><td style="${getStatusStyle(unit.pumpNoise)}">${unit.pumpNoise}</td><td class="label">GLAND PACK</td><td style="${getStatusStyle(unit.glandPacking)}">${unit.glandPacking}</td></tr>`;
+          tableRows += `<tr><td class="label">PUMP COND</td><td style="${getStatusStyle(unit.pumpCondition)}">${unit.pumpCondition}</td><td class="label">VALVE COND</td><td style="${getStatusStyle(unit.valveCondition)}">${unit.valveCondition}</td><td class="label">TANK LEVEL</td><td style="font-weight:bold;">${unit.tankLevel}</td></tr>`;
+          if (unit.overallRemarks) tableRows += `<tr><td class="label">SYSTEM SUMMARY</td><td colspan="5" style="font-size:7.5pt; padding:10px; font-style:italic;">"${unit.overallRemarks}"</td></tr>`;
+          if (unit.servicePhotos) tableRows += renderImageGrid(unit.servicePhotos);
+          reportSections += `<table class="main-table">${tableRows}</table>`;
         });
-
-        tableRows += `<tr><td colspan="6" class="section-header" style="background:#1e293b; font-size:7.5pt;">PUMP CONTROL PANEL INTEGRITY</td></tr>`;
-        tableRows += `<tr><td class="label">INCOMING</td><td style="font-weight:bold;">${data.panelIncomingVolt}V</td><td class="label">LAMPS</td><td style="${getStatusStyle(data.panelLampsStatus)}">${data.panelLampsStatus}</td><td class="label">WIRING</td><td style="${getStatusStyle(data.panelWiringStatus)}">${data.panelWiringStatus}</td></tr>`;
-        
-        if (data.panelLampsStatus === 'Fault') {
-          addFaultRow(label, 'Panel', 'Indication Lamps', data.panelLampsRemarks, 'Fault', data.panelLampsPhoto);
-          tableRows += renderImg(data.panelLampsPhoto, 'Lamp Fault Proof', true);
-        }
-        if (data.panelWiringStatus === 'Fault') {
-          addFaultRow(label, 'Panel', 'Internal Wiring', data.panelWiringRemarks, 'Fault', data.panelWiringPhoto);
-          tableRows += renderImg(data.panelWiringPhoto, 'Wiring Fault Proof', true);
-        }
-        if (data.selectorSwitchStatus === 'Fault') {
-          addFaultRow(label, 'Panel', 'Selector Switch', data.selectorSwitchRemarks, 'Fault', data.selectorSwitchPhoto);
-          tableRows += renderImg(data.selectorSwitchPhoto, 'Switch Fault Proof', true);
-        }
       }
       else {
-        const items = Array.isArray(data) ? data : (data.items || []);
-        items.forEach((item: any, idx: number) => {
+        const assets = Array.isArray(systemData) ? systemData : (systemData.items || [systemData]);
+        let tableRows = `<tr class="page-break"><td colspan="6" class="section-header" style="background:#ec1313; text-align:center; padding:20px; font-size:16pt !important; border: 2pt solid #000;">TECHNICAL REGISTRY: ${label.toUpperCase()}</td></tr>`;
+        tableRows += `<tr style="background:#f8fafc;"><td class="label">OVERALL STATUS</td><td style="${getStatusStyle(systemData.systemOverallStatus || 'Normal')}">${systemData.systemOverallStatus || 'Normal'}</td><td class="label">DESCRIPTION</td><td colspan="3" style="font-size:7.5pt; font-style:italic;">${systemData.systemDescription || 'Standard component verification.'}</td></tr>`;
+        assets.forEach((item: any, idx: number) => {
           const itemName = item.serial || item.brand || item.location || `UNIT #${idx+1}`;
-          tableRows += `<tr><td colspan="6" class="section-header" style="background:#475569; font-size:7.5pt;">ASSET UNIT: ${itemName.toUpperCase()}</td></tr>`;
-          
-          const details = Object.entries(item).filter(([k]) => !['id', 'photos', 'remarks', 'location', 'serial', 'brand', 'type', 'mfgMonth', 'mfgYear', 'weight', 'bombaCertExpiry'].includes(k));
+          tableRows += `<tr><td colspan="6" class="section-header" style="background:#475569; font-size:7.5pt; padding:10px;">UNIT #${idx+1}: ${itemName.toUpperCase()}</td></tr>`;
+          const details = Object.entries(item).filter(([k]) => !['id', 'photos', 'remarks'].includes(k));
           for (let i = 0; i < details.length; i += 3) {
             tableRows += `<tr>`;
             for (let j = 0; j < 3; j++) {
               if (details[i + j]) {
-                const k = details[i+j][0].replace('Status', '').replace(/([A-Z])/g, ' $1').toUpperCase();
-                tableRows += `<td class="label">${k}</td><td style="${getStatusStyle(details[i+j][1])}">${details[i+j][1]}</td>`;
+                const k = formatKey(details[i+j][0]);
+                const v = details[i+j][1];
+                tableRows += `<td class="label">${k}</td><td style="${getStatusStyle(v)}">${v || 'N/A'}</td>`;
               } else tableRows += `<td colspan="2"></td>`;
             }
             tableRows += `</tr>`;
           }
-
-          if (item.remarks && typeof item.remarks === 'object') {
-            Object.entries(item.remarks).forEach(([key, msg]) => {
-              if (msg && DEFECT_TERMS.some(t => String(msg).toLowerCase().includes(t.toLowerCase()))) {
-                const faultPhoto = item.photos?.[key];
-                const faultLabel = key.replace('Status', '').replace('Outcome', '').toUpperCase();
-                addFaultRow(label, 'Inventory', `${itemName} (${faultLabel})`, String(msg), 'FAULT', faultPhoto);
-                if (faultPhoto) tableRows += renderImg(faultPhoto, `Defect: ${itemName} (${faultLabel})`, true);
-              }
-            });
-          }
         });
+        if (systemData.overallRemarks) tableRows += `<tr><td class="label">CATEGORY SUMMARY</td><td colspan="5" style="font-size:7.5pt; padding:10px;">${systemData.overallRemarks}</td></tr>`;
+        if (systemData.servicePhotos) tableRows += renderImageGrid(systemData.servicePhotos);
+        reportSections += `<table class="main-table">${tableRows}</table>`;
       }
-
-      if (data.overallRemarks || (data.servicePhotos && data.servicePhotos.some((p:string) => p))) {
-        tableRows += `<tr><td colspan="6" class="section-header" style="background:#1e293b; font-size:7.5pt; text-align:center;">SERVICE COMPLETION PROOF</td></tr>`;
-        if (data.overallRemarks) tableRows += `<tr><td class="label">SUMMARY REMARKS</td><td colspan="5" style="font-size:7.5pt; padding:10px; font-style:italic;">"${data.overallRemarks}"</td></tr>`;
-        if (data.servicePhotos) tableRows += renderImageGrid(data.servicePhotos);
-      }
-      reportSections += `<table class="main-table">${tableRows}</table>`;
     });
 
     const fullHtml = `
@@ -310,7 +255,6 @@ const SubmissionSuccess: React.FC = () => {
       <html>
       <head>
         <meta charset="UTF-8">
-        <title>BESTRO OS - Service Maintenance Report ${auditId}</title>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
           @page { size: A4; margin: 10mm; }
@@ -327,6 +271,10 @@ const SubmissionSuccess: React.FC = () => {
           .cover-page { border: 10pt solid #ec1313; padding: 40px; height: 260mm; box-sizing:border-box; display:flex; flex-direction:column; justify-content:space-between; text-align:center; position: relative; overflow: hidden; }
           .cover-bg-logo { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 450px; height: 450px; z-index: 1; opacity: 1; pointer-events: none; }
           .page-break { page-break-before: always; }
+          .sign-area { border: 1pt solid #cbd5e1; height: 120px; display: flex; align-items: center; justify-content: center; background: #f8fafc; border-radius: 8px; overflow: hidden; margin-bottom: 10px; }
+          .sign-img { max-height: 100px; max-width: 90%; object-fit: contain; }
+          .sign-label { font-size: 8pt; font-weight: 900; color: #475569; text-transform: uppercase; margin-bottom: 8px; }
+          .no-sign { color: #cbd5e1; font-size: 8pt; font-weight: bold; text-transform: uppercase; }
         </style>
       </head>
       <body>
@@ -342,7 +290,6 @@ const SubmissionSuccess: React.FC = () => {
                      <div class="company-name">BESTRO ENG SDN BHD</div>
                      <div class="company-address">NO. 26, JALAN URANUS AK U5/AK, TAMAN SUBANG IMPIAN, 40150 SHAH ALAM, SELANGOR DARUL EHSAN</div>
                    </div>
-                   <div style="width:130px; flex-shrink: 0; text-align: right;">${setupData?.clientLogo ? `<img src="${setupData.clientLogo}" style="max-height:55px; max-width:110px; object-fit:contain;" />` : ''}</div>
                 </div>
                 <h1 style="font-size:30pt; font-weight:900; margin: 35px 0 8px 0;">SERVICE MAINTENANCE REPORT</h1>
                 <p style="text-transform:uppercase; font-weight:900; color:#ec1313; letter-spacing:4px; font-size:10pt;">Engineering Excellence • Since 2008</p>
@@ -350,40 +297,45 @@ const SubmissionSuccess: React.FC = () => {
              <div style="flex:1; display:flex; align-items:center; justify-content:center; position: relative; z-index: 10;">
                 <table style="width:100%; border:2.5pt solid #000; border-collapse:collapse; background: rgba(255,255,255,0.85);">
                    <tr><td style="padding:15px; font-weight:900; background:#f8fafc; border:1pt solid #000; width:30%;">SITE NAME</td><td style="padding:15px; font-weight:900; font-size:16pt; border:1pt solid #000;">${site}</td></tr>
+                   <tr><td style="padding:15px; font-weight:900; background:#f8fafc; border:1pt solid #000;">AUDIT CYCLE</td><td style="padding:15px; font-weight:900; color:#1e293b; border:1pt solid #000;">${cycle.toUpperCase()}</td></tr>
                    <tr><td style="padding:15px; font-weight:900; background:#f8fafc; border:1pt solid #000;">REPORT REF</td><td style="padding:15px; font-weight:900; color:#ec1313; border:1pt solid #000;">${auditId}</td></tr>
-                   <tr><td style="padding:15px; font-weight:900; background:#f8fafc; border:1pt solid #000;">SERVICE CYCLE</td><td style="padding:15px; font-weight:900; border:1pt solid #000;">${cycle} Assessment</td></tr>
                    <tr><td style="padding:15px; font-weight:900; background:#f8fafc; border:1pt solid #000;">REPORT DATE</td><td style="padding:15px; font-weight:bold; border:1pt solid #000;">${date}</td></tr>
                    <tr><td style="padding:15px; font-weight:900; background:#f8fafc; border:1pt solid #000;">LEAD AUDITOR</td><td style="padding:15px; font-weight:bold; border:1pt solid #000;">${tech.toUpperCase()}</td></tr>
                 </table>
              </div>
-             <div style="font-size:7.5pt; color:#94a3b8; font-weight:600; text-transform:uppercase; letter-spacing:2px; position: relative; z-index: 10;">OFFICIAL ENGINEERING VERIFICATION RECORD</div>
           </div>
-
+          
           <div style="padding-top:20px;">
-             <h2 style="border-bottom:2.5pt solid #ec1313; padding-bottom:8px; font-weight:900; font-size:13pt;">I. DEFICIENCY SUMMARY</h2>
-             <table class="main-table">
-                <tr style="background:#1e293b; color:white;">
-                   <th style="padding:8px; font-size:7pt; border:1pt solid #000; width:20%;">SYSTEM</th>
-                   <th style="padding:8px; font-size:7pt; border:1pt solid #000; width:15%;">SECTION</th>
-                   <th style="padding:8px; font-size:7pt; border:1pt solid #000; width:20%;">UNIT/PART</th>
-                   <th style="padding:8px; font-size:7pt; border:1pt solid #000;">FAULT DESCRIPTION</th>
-                   <th style="padding:8px; font-size:7pt; border:1pt solid #000; width:12%;">STATUS</th>
-                </tr>
-                ${faultSummaryRows || '<tr><td colspan="5" style="text-align:center; padding:35px; color:#059669; font-weight:bold; font-size:9pt; font-style:italic; line-height:1.5;">Based on the inspection conducted, all fire protection systems were found to be functional and compliant with the required standards.</td></tr>'}
-             </table>
-
-             <h2 style="border-bottom:2.5pt solid #ec1313; padding-bottom:8px; font-weight:900; margin-top:35px; font-size:13pt;">II. ASSET INVENTORY CENSUS</h2>
-             <table class="main-table">${inventorySectionHtml || '<tr><td style="padding:15px; text-align:center;">No assets recorded in registry.</td></tr>'}</table>
-
              <h2 style="border-bottom:2.5pt solid #ec1313; padding-bottom:8px; font-weight:900; margin-top:35px; font-size:13pt;">III. FULL TECHNICAL LOGS</h2>
              ${reportSections}
+          </div>
 
-             <div style="margin-top:50px; border:1.5pt solid #000; padding:25px; background:#f8fafc;">
-                <h3 style="font-weight:900; text-transform:uppercase; border-bottom:1pt solid #000; padding-bottom:8px; font-size:10pt;">Final Certification</h3>
-                <div style="display:flex; justify-content:space-between; margin-top:50px;">
-                   <div style="text-align:center; width:40%;">${setupData?.techSigData ? `<img src="${setupData.techSigData}" style="max-height:75px;" />` : '<div style="height:75px;"></div>'}<div style="border-top:1pt solid #000; font-weight:900; font-size:7pt; padding-top:5px;">LEAD AUDITOR SIGN-OFF</div><div style="font-size:7pt;">${tech.toUpperCase()}</div></div>
-                   <div style="text-align:center; width:40%;">${setupData?.clientSigData ? `<img src="${setupData.clientSigData}" style="max-height:75px;" />` : '<div style="height:75px;"></div>'}<div style="border-top:1pt solid #000; font-weight:900; font-size:7pt; padding-top:5px;">CLIENT AUTHORIZATION</div><div style="font-size:7pt;">${setupData?.clientRepName?.toUpperCase() || 'N/A'}</div></div>
-                </div>
+          <div class="page-break" style="padding-top:40px; page-break-inside: avoid;">
+             <h2 style="border-bottom:2.5pt solid #ec1313; padding-bottom:8px; font-weight:900; font-size:13pt; margin-bottom:30px;">IV. AUTHORIZATION & SIGN-OFF</h2>
+             <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                   <td style="width: 50%; padding-right: 25px; vertical-align: top;">
+                      <div class="sign-label">Authorized Client Representative</div>
+                      <div class="sign-area">
+                         ${clientSig ? `<img src="${clientSig}" class="sign-img" />` : '<span class="no-sign">No Signature Recorded</span>'}
+                      </div>
+                      <div style="font-size: 9pt; font-weight: 900; margin-top: 5px;">${clientRep.toUpperCase()}</div>
+                      <div style="font-size: 7pt; color: #64748b; font-weight: bold; margin-top: 2px;">Date: ${clientAuthDate}</div>
+                   </td>
+                   <td style="width: 50%; padding-left: 25px; vertical-align: top;">
+                      <div class="sign-label">Lead Technical Auditor</div>
+                      <div class="sign-area">
+                         ${techSig ? `<img src="${techSig}" class="sign-img" />` : '<span class="no-sign">No Signature Recorded</span>'}
+                      </div>
+                      <div style="font-size: 9pt; font-weight: 900; margin-top: 5px;">${tech.toUpperCase()}</div>
+                      <div style="font-size: 7pt; color: #64748b; font-weight: bold; margin-top: 2px;">Date: ${date}</div>
+                   </td>
+                </tr>
+             </table>
+             <div style="margin-top: 50px; padding: 15px; border: 1pt dashed #cbd5e1; background: #f8fafc; border-radius: 8px; text-align: center;">
+                <p style="font-size: 7.5pt; color: #64748b; font-weight: 600; margin: 0; line-height: 1.5;">
+                   This report is generated digitally via Bestro Maintenance OS. The signatures above certify that the field inspection and technical census were conducted in accordance with engineering safety standards.
+                </p>
              </div>
           </div>
         </div>
@@ -399,7 +351,7 @@ const SubmissionSuccess: React.FC = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute("download", `BESTRO_SERVICE_REPORT_${auditId}.xls`);
+      link.setAttribute("download", `BESTRO_REPORT_${auditId}.xls`);
       link.click();
     } else {
       const printWin = window.open('', '_blank');

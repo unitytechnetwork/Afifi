@@ -1,16 +1,18 @@
 
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 const BottomNav: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
 
   const navItems = [
-    { label: 'Dashboard', icon: 'dashboard', path: '/' },
-    { label: 'Inspections', icon: 'assignment', path: '/inspections' },
-    { label: 'Users', icon: 'group', path: '/admin/users' },
-    { label: 'Settings', icon: 'settings', path: '/settings' },
+    { label: t('bottom_nav.dashboard'), icon: 'dashboard', path: '/' },
+    { label: t('bottom_nav.inspections'), icon: 'assignment', path: '/inspections' },
+    { label: t('bottom_nav.users'), icon: 'group', path: '/admin/users' },
+    { label: t('bottom_nav.settings'), icon: 'settings', path: '/settings' },
   ];
 
   return (

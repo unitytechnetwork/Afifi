@@ -43,5 +43,4 @@ export interface User {
   avatar: string;
   status: 'online' | 'offline' | 'busy';
   pin?: string;
-  hasBiometric?: boolean;
 }

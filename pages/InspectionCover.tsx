@@ -199,8 +199,9 @@ const InspectionCover: React.FC = () => {
   };
 
   const handleStart = () => {
-    if (!clientName || !clientSigData || !techSigData || !clientRepName) {
-      alert("Please ensure Building Name, Representative Name, and both Signatures are completed.");
+    // UPDATED VALIDATION: Now only requires Building Name and Technician Signature
+    if (!clientName || !techSigData) {
+      alert("Please ensure Building Name and Technician Signature are completed before beginning.");
       return;
     }
     navigate(`/checklist/${activeId}`);
@@ -287,10 +288,11 @@ const InspectionCover: React.FC = () => {
             </div>
           </div>
 
+          {/* SECTION: Client Authorization (OPTIONAL) */}
           <div className="bg-surface-dark p-5 rounded-2xl border border-white/5 flex flex-col gap-4 shadow-xl">
              <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-sm">person_pin</span>
-                <h3 className="text-[10px] font-black uppercase tracking-widest italic">Client Authorization</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-widest italic">Client Authorization <span className="text-text-muted lowercase font-normal">(Optional - can be completed later)</span></h3>
              </div>
              
              <div className="flex flex-col gap-3">
@@ -300,7 +302,7 @@ const InspectionCover: React.FC = () => {
                     type="text" 
                     value={clientRepName}
                     onChange={(e) => setClientRepName(e.target.value)}
-                    placeholder="Nama wakil client..."
+                    placeholder="Nama wakil client (pilihan)..."
                     className="bg-background-dark/50 border-none rounded-xl h-10 px-4 text-xs focus:ring-1 focus:ring-primary transition-all font-bold text-white"
                   />
                 </div>
@@ -315,20 +317,21 @@ const InspectionCover: React.FC = () => {
                   />
                 </div>
 
-                <SignaturePad onSign={setClientSigData} placeholder="Client Signature Required" initialData={clientSigData} />
+                <SignaturePad onSign={setClientSigData} placeholder="Client Signature (Optional)" initialData={clientSigData} />
              </div>
           </div>
 
+          {/* SECTION: Technician Sign-off (REQUIRED) */}
           <div className="bg-surface-dark p-5 rounded-2xl border border-white/5 flex flex-col gap-4 shadow-xl">
              <div className="flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary text-sm">engineering</span>
-                <h3 className="text-[10px] font-black uppercase tracking-widest italic">Technician Sign-off</h3>
+                <h3 className="text-[10px] font-black uppercase tracking-widest italic">Technician Sign-off <span className="text-primary lowercase font-normal">(Required to begin checklist)</span></h3>
              </div>
              <div className="flex justify-between items-center mb-1">
                 <span className="text-[8px] font-black text-text-muted uppercase tracking-widest">Tech: {currentUser.name}</span>
-                <span className="text-[8px] font-black text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-widest">Verified</span>
+                <span className="text-[8px] font-black text-emerald-500 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-widest">Required</span>
              </div>
-             <SignaturePad onSign={setTechSigData} placeholder="Draw Technician Signature" initialData={techSigData} />
+             <SignaturePad onSign={setTechSigData} placeholder="Draw Technician Signature (Required)" initialData={techSigData} />
           </div>
         </div>
       </div>
@@ -337,7 +340,7 @@ const InspectionCover: React.FC = () => {
         <button 
           onClick={handleStart}
           className={`w-full h-16 rounded-2xl flex items-center justify-center gap-3 shadow-2xl active:scale-[0.98] transition-all group ${
-            clientSigData && techSigData && clientName && clientRepName ? 'bg-primary text-white shadow-primary/30' : 'bg-white/5 text-white/20 cursor-not-allowed'
+            techSigData && clientName ? 'bg-primary text-white shadow-primary/30' : 'bg-white/5 text-white/20 cursor-not-allowed'
           }`}
         >
           <span className="font-black uppercase tracking-[0.2em] text-sm italic">Begin Checklist</span>

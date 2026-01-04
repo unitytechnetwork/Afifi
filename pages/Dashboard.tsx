@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import TopBar from '../components/TopBar';
 import BottomNav from '../components/BottomNav';
 import { MOCK_USER, USERS_LIST } from '../constants';
@@ -8,11 +9,16 @@ import { InspectionStatus, User, Inspection } from '../types';
 import { sendLocalNotification } from '../components/NotificationManager';
 
 const Dashboard: React.FC = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [isSyncing, setIsSyncing] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   
+  // Dispatch Form State
+  const [dispatchBuilding, setDispatchBuilding] = useState('');
+  const [dispatchTechId, setDispatchTechId] = useState('');
+
   const [currentUser, setCurrentUser] = useState<User>(() => {
     const saved = localStorage.getItem('current_user');
     try {
@@ -26,7 +32,6 @@ const Dashboard: React.FC = () => {
   const [localAudits, setLocalAudits] = useState<Inspection[]>([]);
   const [totalOpenDefects, setTotalOpenDefects] = useState(0);
 
-  // Check role: Must be exactly 'Supervisor' or 'Admin'
   const isSupervisor = currentUser?.role === 'Supervisor' || currentUser?.role === 'Admin';
 
   useEffect(() => {
@@ -34,6 +39,12 @@ const Dashboard: React.FC = () => {
     const combined = [...registry, ...USERS_LIST];
     const unique = Array.from(new Map(combined.map(u => [String(u.id), u])).values());
     setAllUsers(unique);
+    
+    // Set default tech for dispatch if list exists
+    const techs = unique.filter(u => u.role === 'Technician');
+    if (techs.length > 0 && !dispatchTechId) {
+      setDispatchTechId(techs[0].id);
+    }
   }, [refreshTrigger]);
 
   const loadAudits = () => {
@@ -99,8 +110,11 @@ const Dashboard: React.FC = () => {
     loadAudits();
   }, [currentUser, isSupervisor, refreshTrigger]);
 
+  const latestAuditId = useMemo(() => {
+    return localAudits.length > 0 ? localAudits[0].id : null;
+  }, [localAudits]);
+
   const handleApproveJob = (e: React.MouseEvent, auditId: string) => {
-    // CRITICAL: Stop propagation completely to avoid card navigation
     e.stopPropagation();
     e.preventDefault();
     
@@ -112,40 +126,25 @@ const Dashboard: React.FC = () => {
         data.status = InspectionStatus.APPROVED;
         localStorage.setItem(key, JSON.stringify(data));
         
-        // Trigger re-render
         setRefreshTrigger(prev => prev + 1);
         sendLocalNotification(
-          "Audit Completed", 
+          "Audit Approved", 
           `Laporan #${auditId} telah disahkan oleh ${currentUser.name}.`
         );
       }
     }
   };
 
-  const [assignForm, setAssignForm] = useState({
-    clientName: '',
-    location: '',
-    techId: '',
-    date: new Date().toISOString().split('T')[0]
-  });
-
-  const pendingSyncCount = useMemo(() => 
-    localAudits.filter(i => i.status === InspectionStatus.PENDING_SYNC || i.status === InspectionStatus.DRAFT).length
-  , [localAudits]);
-
-  const completedCount = useMemo(() => 
-    localAudits.filter(i => i.status === InspectionStatus.SUBMITTED || i.status === InspectionStatus.APPROVED).length
-  , [localAudits]);
-
   const handleSync = () => {
-    if (pendingSyncCount === 0) {
+    const pendingCount = localAudits.filter(i => i.status === InspectionStatus.DRAFT || i.status === InspectionStatus.PENDING_SYNC).length;
+    if (pendingCount === 0) {
       alert("Sistem: Semua laporan telah diselaraskan.");
       return;
     }
     setIsSyncing(true);
     setTimeout(() => {
       setIsSyncing(false);
-      alert(`Berjaya: ${pendingSyncCount} laporan dihantar ke awan.`);
+      alert(`Berjaya: ${pendingCount} laporan dihantar ke awan.`);
       setRefreshTrigger(prev => prev + 1);
     }, 1500);
   };
@@ -157,32 +156,35 @@ const Dashboard: React.FC = () => {
 
   const handleAssignJob = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!assignForm.clientName || !assignForm.techId) {
-      alert("Ralat: Sila isi semua maklumat.");
+    if (!dispatchBuilding || !dispatchTechId) {
+      alert("Sila masukkan Nama Bangunan dan pilih Juruteknik.");
       return;
     }
 
-    const selectedTech = allUsers.find(u => String(u.id) === String(assignForm.techId));
+    const selectedTech = allUsers.find(u => String(u.id) === String(dispatchTechId));
     const newAuditId = `AUDIT-${Date.now()}`;
     
-    const setupData = {
-      clientName: assignForm.clientName,
-      location: assignForm.location,
-      date: assignForm.date,
-      technicianId: String(assignForm.techId),
+    const initialSetup = {
+      clientName: dispatchBuilding,
+      location: 'Site Visit Pending',
+      date: new Date().toISOString().split('T')[0],
+      technicianId: dispatchTechId,
       techName: selectedTech?.name || 'Assigned Tech',
       status: InspectionStatus.DRAFT,
-      frequency: 'Monthly'
+      frequency: 'Cycle 1'
     };
 
-    try {
-      localStorage.setItem(`setup_${newAuditId}`, JSON.stringify(setupData));
-      setShowAssignModal(false);
-      setAssignForm({ clientName: '', location: '', techId: '', date: new Date().toISOString().split('T')[0] });
-      setRefreshTrigger(prev => prev + 1);
-    } catch (err) {
-      alert("Ralat sistem: Memori penuh.");
-    }
+    localStorage.setItem(`setup_${newAuditId}`, JSON.stringify(initialSetup));
+    
+    sendLocalNotification(
+      "Job Dispatched",
+      `Tugasan di ${dispatchBuilding} telah dihantar kepada ${selectedTech?.name}.`
+    );
+
+    setShowAssignModal(false);
+    setDispatchBuilding('');
+    setRefreshTrigger(prev => prev + 1);
+    alert(`Berjaya: Tugasan #${newAuditId} telah dijana.`);
   };
 
   const getStatusColor = (status: InspectionStatus) => {
@@ -199,20 +201,19 @@ const Dashboard: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-background-dark pb-24 overflow-y-auto no-scrollbar">
-      <TopBar title="Dashboard" onSave={handleSync} />
+      <TopBar title={t('bottom_nav.dashboard')} onSave={handleSync} />
       
       <div className="p-4 flex flex-col gap-6">
         <div className="flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <h1 className="text-2xl font-bold italic tracking-tight uppercase">SYSTEMS ACTIVE,</h1>
-              {/* Role Badge - To verify if user is really recognized as Supervisor */}
+              <h1 className="text-2xl font-bold italic tracking-tight uppercase">{t('dashboard.systems_active')},</h1>
               <div className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${isSupervisor ? 'bg-primary text-white' : 'bg-slate-700 text-slate-300'}`}>
                 {currentUser.role}
               </div>
             </div>
             <p className="text-text-muted font-black text-xs uppercase tracking-[0.2em] -mt-1">
-              {currentUser.name} • <span className="text-primary">ID: {currentUser.id}</span>
+              {currentUser.name} • <span className="text-primary">{t('common.id')}: {currentUser.id}</span>
             </p>
           </div>
           <div 
@@ -226,19 +227,19 @@ const Dashboard: React.FC = () => {
 
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-surface-dark p-4 rounded-2xl border border-white/5 flex flex-col gap-1 shadow-xl">
-            <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">{isSupervisor ? 'Team Pending' : 'My Queue'}</span>
+            <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">{isSupervisor ? t('dashboard.team_pending') : t('dashboard.my_queue')}</span>
             <div className="flex items-end justify-between">
-              <span className={`text-3xl font-black ${pendingSyncCount > 0 ? 'text-amber-500' : 'text-text-muted'}`}>
-                {pendingSyncCount.toString().padStart(2, '0')}
+              <span className={`text-3xl font-black ${localAudits.filter(i => i.status === InspectionStatus.DRAFT || i.status === InspectionStatus.PENDING_SYNC).length > 0 ? 'text-amber-500' : 'text-text-muted'}`}>
+                {localAudits.filter(i => i.status === InspectionStatus.DRAFT || i.status === InspectionStatus.PENDING_SYNC).length.toString().padStart(2, '0')}
               </span>
               <span className="material-symbols-outlined text-amber-500">pending_actions</span>
             </div>
           </div>
           <div className="bg-surface-dark p-4 rounded-2xl border border-white/5 flex flex-col gap-1 shadow-xl">
-            <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">Completed</span>
+            <span className="text-[9px] font-black text-text-muted uppercase tracking-widest">{t('dashboard.completed')}</span>
             <div className="flex items-end justify-between">
               <span className="text-3xl font-black text-emerald-500">
-                {completedCount.toString().padStart(2, '0')}
+                {localAudits.filter(i => i.status === InspectionStatus.SUBMITTED || i.status === InspectionStatus.APPROVED).length.toString().padStart(2, '0')}
               </span>
               <span className="material-symbols-outlined text-emerald-500">verified</span>
             </div>
@@ -246,7 +247,7 @@ const Dashboard: React.FC = () => {
         </div>
 
         <div 
-          onClick={() => navigate('/inspections')}
+          onClick={() => latestAuditId ? navigate(`/defect-report/${latestAuditId}`) : navigate('/inspections')}
           className="bg-primary/5 p-6 rounded-3xl border border-primary/20 flex items-center justify-between shadow-2xl active:scale-[0.98] transition-all cursor-pointer overflow-hidden relative group"
         >
           <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-primary/10 transition-all" />
@@ -255,8 +256,8 @@ const Dashboard: React.FC = () => {
                <span className="material-symbols-outlined text-white text-3xl">warning</span>
             </div>
             <div className="flex flex-col">
-              <h2 className="text-lg font-black italic uppercase text-white tracking-tight">Defect Report</h2>
-              <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em]">{totalOpenDefects} Active Deficiency Records</p>
+              <h2 className="text-lg font-black italic uppercase text-white tracking-tight">{t('dashboard.defect_report')}</h2>
+              <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em]">{totalOpenDefects} {t('dashboard.active_deficiency')}</p>
             </div>
           </div>
           <span className="material-symbols-outlined text-primary group-hover:translate-x-2 transition-transform relative z-10">chevron_right</span>
@@ -265,7 +266,7 @@ const Dashboard: React.FC = () => {
         <div className="flex flex-col gap-4">
           <div className="flex items-center justify-between px-1">
             <h3 className="font-black uppercase tracking-widest text-[10px] text-text-muted">
-              {isSupervisor ? 'Regional Dispatch Log' : 'Personal Task Registry'}
+              {isSupervisor ? t('dashboard.dispatch_log') : t('dashboard.task_registry')}
             </h3>
           </div>
 
@@ -287,7 +288,7 @@ const Dashboard: React.FC = () => {
                     </div>
                   </div>
                   <div className={`px-2 py-0.5 rounded text-[8px] font-black border shrink-0 ${getStatusColor(insp.status)}`}>
-                    {insp.status}
+                    {insp.status === InspectionStatus.SUBMITTED ? 'COMPLETED' : insp.status}
                   </div>
                 </div>
                 
@@ -298,18 +299,17 @@ const Dashboard: React.FC = () => {
                     </span>
                   </div>
                   
-                  {/* BUTTON ACTION CONTAINER */}
                   <div className="flex items-center gap-2 relative z-30">
-                    {isSupervisor && insp.status !== InspectionStatus.APPROVED && (
+                    {isSupervisor && (insp.status === InspectionStatus.SUBMITTED) && (
                       <button 
                         onClick={(e) => handleApproveJob(e, insp.id)}
                         className="h-8 px-4 bg-emerald-600 text-white rounded-xl text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 active:scale-90 transition-all flex items-center gap-1.5 shadow-[0_5px_15px_rgba(16,185,129,0.3)] border border-emerald-400/30"
                       >
-                         Certify <span className="material-symbols-outlined text-[12px]">verified</span>
+                         {t('dashboard.certify')} <span className="material-symbols-outlined text-[12px]">verified</span>
                       </button>
                     )}
                     <div className="flex items-center gap-1 text-primary text-[10px] font-black uppercase tracking-widest group-hover:translate-x-1 transition-transform">
-                      {insp.status === InspectionStatus.DRAFT ? 'Continue' : 'Review'}
+                      {insp.status === InspectionStatus.DRAFT ? t('dashboard.continue') : t('dashboard.review')}
                       <span className="material-symbols-outlined text-sm">chevron_right</span>
                     </div>
                   </div>
@@ -318,73 +318,86 @@ const Dashboard: React.FC = () => {
             )) : (
               <div className="py-16 text-center bg-surface-dark/40 rounded-3xl border border-dashed border-white/5 flex flex-col items-center justify-center opacity-30">
                 <span className="material-symbols-outlined text-4xl mb-3">inventory_2</span>
-                <p className="text-[9px] font-black uppercase tracking-[0.3em]">Registry Empty</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.3em]">{t('dashboard.registry_empty')}</p>
               </div>
             )}
           </div>
         </div>
       </div>
 
+      {/* Floating Action Button */}
       <button 
         onClick={() => isSupervisor ? setShowAssignModal(true) : handleNewReport()}
         className="fixed bottom-24 right-5 w-16 h-16 bg-primary text-white rounded-2xl shadow-[0_10px_40px_rgba(236,19,19,0.3)] flex flex-col items-center justify-center z-40 active:scale-90 transition-all border-4 border-background-dark"
       >
         <span className="material-symbols-outlined text-2xl">{isSupervisor ? 'assignment_ind' : 'add'}</span>
-        <span className="text-[7px] font-black uppercase tracking-widest">{isSupervisor ? 'Dispatch' : 'New'}</span>
+        <span className="text-[7px] font-black uppercase tracking-widest">{isSupervisor ? t('dashboard.dispatch_new') : 'New'}</span>
       </button>
 
-      {/* Modal Dispatch Job */}
+      {/* Dispatch Job Modal */}
       {showAssignModal && (
-        <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-end justify-center animate-in slide-in-from-bottom duration-300">
-          <div className="bg-surface-dark w-full max-w-md rounded-t-[40px] border-t border-white/10 p-8 flex flex-col gap-6 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-sm font-black uppercase tracking-widest italic">Dispatch New Job</h3>
-                <p className="text-[9px] text-text-muted font-black uppercase mt-1 tracking-widest">Resource Allocation System</p>
-              </div>
-              <button onClick={() => setShowAssignModal(false)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5">
-                <span className="material-symbols-outlined">close</span>
-              </button>
-            </div>
-
-            <form onSubmit={handleAssignJob} className="flex flex-col gap-4 pb-10">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Building Name</label>
-                <input 
-                  type="text" 
-                  required
-                  value={assignForm.clientName}
-                  onChange={(e) => setAssignForm({...assignForm, clientName: e.target.value})}
-                  className="bg-background-dark/50 border-white/5 border rounded-2xl h-14 px-5 text-sm font-bold focus:ring-1 focus:ring-primary text-white"
-                  placeholder="e.g. Wisma Bestro"
-                />
+        <div className="fixed inset-0 z-[100] bg-black/95 backdrop-blur-xl flex items-end justify-center animate-in slide-in-from-bottom duration-300">
+           <div className="bg-surface-dark w-full max-w-md rounded-t-[40px] border-t border-white/10 p-8 flex flex-col gap-6 shadow-2xl max-h-[90vh] overflow-y-auto no-scrollbar">
+              <div className="flex justify-between items-center">
+                 <div>
+                    <h3 className="text-sm font-black uppercase tracking-widest italic text-primary">{t('dashboard.dispatch_new')}</h3>
+                    <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mt-1">Regional Assignment Terminal</p>
+                 </div>
+                 <button onClick={() => setShowAssignModal(false)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5">
+                    <span className="material-symbols-outlined">close</span>
+                 </button>
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">Select Field Tech</label>
-                <select 
-                  required
-                  value={assignForm.techId}
-                  onChange={(e) => setAssignForm({...assignForm, techId: e.target.value})}
-                  className="bg-background-dark/50 border-white/5 border rounded-2xl h-14 px-5 text-sm font-bold focus:ring-1 focus:ring-primary text-white appearance-none"
-                >
-                  <option value="" className="bg-surface-dark">Choose Technician...</option>
-                  {allUsers.filter(u => u.role === 'Technician').map(u => (
-                    <option key={u.id} value={u.id} className="bg-surface-dark">
-                      {u.name} (ID: {u.id})
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <form onSubmit={handleAssignJob} className="flex flex-col gap-5 pb-10">
+                 <div className="flex flex-col gap-2">
+                    <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">{t('dashboard.building_name')}</label>
+                    <div className="bg-background-dark/50 border border-white/5 rounded-2xl p-1 focus-within:border-primary transition-all">
+                       <input 
+                         type="text" 
+                         required
+                         value={dispatchBuilding}
+                         onChange={(e) => setDispatchBuilding(e.target.value)}
+                         className="bg-transparent border-none w-full h-12 px-4 text-sm font-bold text-white focus:ring-0"
+                         placeholder="Contoh: Menara Bestro A"
+                       />
+                    </div>
+                 </div>
 
-              <button 
-                type="submit"
-                className="w-full h-14 bg-primary text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-xl active:scale-[0.98] transition-all mt-4 border border-white/10"
-              >
-                Confirm Dispatch
-              </button>
-            </form>
-          </div>
+                 <div className="flex flex-col gap-2">
+                    <label className="text-[9px] font-black text-text-muted uppercase tracking-widest ml-1">{t('dashboard.select_tech')}</label>
+                    <div className="bg-background-dark/50 border border-white/5 rounded-2xl p-1 focus-within:border-primary transition-all">
+                       <select 
+                         required
+                         value={dispatchTechId}
+                         onChange={(e) => setDispatchTechId(e.target.value)}
+                         className="bg-transparent border-none w-full h-12 px-4 text-sm font-bold text-white focus:ring-0 appearance-none"
+                       >
+                          {allUsers.filter(u => u.role === 'Technician').map(u => (
+                            <option key={u.id} value={u.id} className="bg-surface-dark">{u.name} (ID: {u.id})</option>
+                          ))}
+                          {allUsers.filter(u => u.role === 'Technician').length === 0 && (
+                             <option disabled>Tiada juruteknik aktif</option>
+                          )}
+                       </select>
+                    </div>
+                 </div>
+
+                 <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 mt-2">
+                    <div className="flex items-center gap-3">
+                       <span className="material-symbols-outlined text-primary">info</span>
+                       <p className="text-[8px] font-bold text-text-muted leading-relaxed uppercase">Nota: Tugasan ini akan terus dipaparkan dalam dashboard juruteknik yang dipilih secara serta-merta.</p>
+                    </div>
+                 </div>
+
+                 <button 
+                   type="submit"
+                   className="w-full h-16 bg-primary text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-xl hover:bg-red-700 active:scale-95 transition-all mt-4 border border-white/10 flex items-center justify-center gap-3"
+                 >
+                   <span>{t('dashboard.confirm_dispatch')}</span>
+                   <span className="material-symbols-outlined text-sm">send</span>
+                 </button>
+              </form>
+           </div>
         </div>
       )}
 

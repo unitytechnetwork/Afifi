@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import TopBar from '../components/TopBar';
 import BottomNav from '../components/BottomNav';
 import { MOCK_USER } from '../constants';
@@ -11,6 +12,7 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
+  const { t, i18n } = useTranslation();
   const navigate = useNavigate();
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('current_user');
@@ -20,7 +22,6 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
   const [securityPrefs, setSecurityPrefs] = useState(() => {
     const saved = localStorage.getItem('security_prefs');
     return saved ? JSON.parse(saved) : {
-      biometrics: user.hasBiometric || false,
       clearOnLogout: false,
       securityPin: user.pin || '1234'
     };
@@ -43,6 +44,11 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
   const [confirmPin, setConfirmPin] = useState('');
   
   const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const changeLanguage = (lng: string) => {
+    i18n.changeLanguage(lng);
+    localStorage.setItem('app_language', lng);
+  };
 
   const handleNotificationToggle = () => {
     const newVal = !notifications;
@@ -134,20 +140,6 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
     const newPrefs = { ...securityPrefs, [key]: newValue };
     setSecurityPrefs(newPrefs);
     localStorage.setItem('security_prefs', JSON.stringify(newPrefs));
-
-    if (key === 'biometrics') {
-      const updatedUser = { ...user, hasBiometric: newValue };
-      setUser(updatedUser);
-      localStorage.setItem('current_user', JSON.stringify(updatedUser));
-      localStorage.setItem('last_user', JSON.stringify(updatedUser));
-
-      const registry = JSON.parse(localStorage.getItem('users_registry') || '[]');
-      const userIndex = registry.findIndex((u: any) => String(u.id) === String(updatedUser.id) || u.email === updatedUser.email);
-      if (userIndex > -1) {
-        registry[userIndex].hasBiometric = newValue;
-        localStorage.setItem('users_registry', JSON.stringify(registry));
-      }
-    }
   };
 
   const handleAvatarClick = () => {
@@ -191,7 +183,7 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
 
   return (
     <div className="flex flex-col h-full bg-background-dark pb-32">
-      <TopBar title="Settings" subtitle="System Configuration" />
+      <TopBar title={t('settings.title')} subtitle={t('settings.subtitle')} />
 
       <div className="flex-1 overflow-y-auto no-scrollbar">
         <div className="p-4 flex flex-col gap-6">
@@ -217,13 +209,7 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
 
             <div className="flex-1 min-w-0">
               <h2 className="font-bold text-lg truncate uppercase tracking-tight">{user.name}</h2>
-              <p className="text-text-muted text-[10px] font-black uppercase tracking-widest">{user.role} • ID: {user.id}</p>
-              <div className="flex items-center gap-1.5 mt-1.5">
-                <div className={`w-1.5 h-1.5 rounded-full ${securityPrefs.biometrics ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-amber-500'}`} />
-                <span className="text-[8px] font-black text-text-muted uppercase tracking-widest">
-                  {securityPrefs.biometrics ? 'Biometric Active' : 'PIN Access Only'}
-                </span>
-              </div>
+              <p className="text-text-muted text-[10px] font-black uppercase tracking-widest">{user.role} • {t('common.id')}: {user.id}</p>
             </div>
             <button 
               onClick={() => setShowQR(true)}
@@ -234,7 +220,7 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
           </div>
 
           <section>
-            <h3 className="px-4 text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-2 italic">Security Hub</h3>
+            <h3 className="px-4 text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-2 italic">{t('settings.security_hub')}</h3>
             <div className="bg-surface-dark rounded-3xl border border-white/5 divide-y divide-white/5 overflow-hidden shadow-xl">
               <button 
                 onClick={() => {
@@ -248,7 +234,7 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
                   <div className="w-9 h-9 rounded-xl bg-background-dark flex items-center justify-center text-primary group-hover:bg-primary/10 transition-colors">
                     <span className="material-symbols-outlined text-[20px]">person</span>
                   </div>
-                  <span className="text-xs font-bold uppercase tracking-tight">Identity Details</span>
+                  <span className="text-xs font-bold uppercase tracking-tight">{t('settings.identity_details')}</span>
                 </div>
                 <span className="material-symbols-outlined text-text-muted group-hover:translate-x-1 transition-transform">chevron_right</span>
               </button>
@@ -263,11 +249,11 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
               >
                 <div className="flex items-center gap-4">
                   <div className="w-9 h-9 rounded-xl bg-background-dark flex items-center justify-center text-primary group-hover:bg-primary/10 transition-colors">
-                    <span className="material-symbols-outlined text-[20px]">fingerprint</span>
+                    <span className="material-symbols-outlined text-[20px]">lock</span>
                   </div>
                   <div className="flex flex-col items-start text-left">
-                    <span className="text-xs font-bold uppercase tracking-tight">PIN & Biometrics</span>
-                    <span className="text-[7px] font-black text-primary uppercase tracking-widest">Manage Authorization</span>
+                    <span className="text-xs font-bold uppercase tracking-tight">Security PIN</span>
+                    <span className="text-[7px] font-black text-primary uppercase tracking-widest">{t('settings.manage_auth')}</span>
                   </div>
                 </div>
                 <span className="material-symbols-outlined text-text-muted group-hover:translate-x-1 transition-transform">chevron_right</span>
@@ -276,14 +262,38 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
           </section>
 
           <section>
-            <h3 className="px-4 text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-2 italic">App Configuration</h3>
+            <h3 className="px-4 text-[10px] font-black text-text-muted uppercase tracking-[0.2em] mb-2 italic">{t('settings.app_config')}</h3>
             <div className="bg-surface-dark rounded-3xl border border-white/5 divide-y divide-white/5 overflow-hidden shadow-xl">
+              {/* Language Selector */}
+              <div className="w-full flex items-center justify-between p-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-9 h-9 rounded-xl bg-background-dark flex items-center justify-center text-blue-500">
+                    <span className="material-symbols-outlined text-[20px]">translate</span>
+                  </div>
+                  <span className="text-xs font-bold uppercase tracking-tight">{t('settings.language')}</span>
+                </div>
+                <div className="flex items-center bg-background-dark rounded-xl p-1">
+                  <button 
+                    onClick={() => changeLanguage('ms')}
+                    className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${i18n.language === 'ms' ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}
+                  >
+                    MY
+                  </button>
+                  <button 
+                    onClick={() => changeLanguage('en')}
+                    className={`px-3 py-1.5 rounded-lg text-[8px] font-black uppercase transition-all ${i18n.language === 'en' ? 'bg-primary text-white' : 'text-text-muted hover:text-white'}`}
+                  >
+                    EN
+                  </button>
+                </div>
+              </div>
+
               <div className="w-full flex items-center justify-between p-4">
                 <div className="flex items-center gap-4">
                   <div className="w-9 h-9 rounded-xl bg-background-dark flex items-center justify-center text-amber-500">
                     <span className="material-symbols-outlined text-[20px]">notifications</span>
                   </div>
-                  <span className="text-xs font-bold uppercase tracking-tight">Push Notifications</span>
+                  <span className="text-xs font-bold uppercase tracking-tight">{t('settings.notifications')}</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <button 
@@ -314,8 +324,8 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
                     <span className="material-symbols-outlined text-[20px]">sync</span>
                   </div>
                   <div className="flex flex-col items-start text-left">
-                    <span className="text-xs font-bold uppercase tracking-tight">Sync Cloud Data</span>
-                    <span className="text-[7px] font-black text-text-muted uppercase tracking-widest italic">Status: {lastSync}</span>
+                    <span className="text-xs font-bold uppercase tracking-tight">{t('settings.sync_cloud')}</span>
+                    <span className="text-[7px] font-black text-text-muted uppercase tracking-widest italic">{t('settings.sync_status', { time: lastSync })}</span>
                   </div>
                 </div>
                 <span className="material-symbols-outlined text-text-muted">chevron_right</span>
@@ -324,7 +334,7 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
           </section>
 
           <section>
-            <h3 className="px-4 text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2 italic">System Control</h3>
+            <h3 className="px-4 text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-2 italic">{t('settings.system_control')}</h3>
             <div className="bg-surface-dark rounded-3xl border border-white/5 divide-y divide-white/5 overflow-hidden shadow-xl">
               <button 
                 onClick={handleLogoutAction}
@@ -334,7 +344,7 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
                   <div className="w-9 h-9 rounded-xl bg-background-dark flex items-center justify-center text-primary group-hover:bg-primary/20 transition-colors">
                     <span className="material-symbols-outlined text-[20px]">logout</span>
                   </div>
-                  <span className="text-xs font-bold uppercase tracking-tight text-white">Log Out</span>
+                  <span className="text-xs font-bold uppercase tracking-tight text-white">{t('settings.logout')}</span>
                 </div>
                 <span className="material-symbols-outlined text-text-muted">chevron_right</span>
               </button>
@@ -347,7 +357,7 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
                   <div className="w-9 h-9 rounded-xl bg-background-dark flex items-center justify-center text-red-800">
                     <span className="material-symbols-outlined text-[20px]">delete_forever</span>
                   </div>
-                  <span className="text-xs font-bold uppercase tracking-tight text-red-600">Factory Reset</span>
+                  <span className="text-xs font-bold uppercase tracking-tight text-red-600">{t('settings.factory_reset')}</span>
                 </div>
                 <span className="material-symbols-outlined text-red-900/50">chevron_right</span>
               </button>
@@ -366,7 +376,7 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
               <div className="flex justify-between items-center">
                  <div>
                     <h3 className="text-sm font-black uppercase tracking-widest italic text-primary">Security Replacement</h3>
-                    <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mt-1">Ganti PIN & Tetapan Biometrik</p>
+                    <p className="text-[9px] font-black text-text-muted uppercase tracking-widest mt-1">Ganti PIN Keselamatan</p>
                  </div>
                  <button onClick={() => setShowSecurity(false)} className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/5">
                     <span className="material-symbols-outlined">close</span>
@@ -374,27 +384,6 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
               </div>
               
               <div className="flex flex-col gap-6">
-                 <div className="bg-background-dark/30 p-5 rounded-3xl border border-white/5 flex items-center justify-between transition-all active:scale-[0.98]">
-                    <div className="flex items-center gap-4">
-                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${securityPrefs.biometrics ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'bg-white/5 text-text-muted'}`}>
-                          <span className="material-symbols-outlined text-2xl">fingerprint</span>
-                       </div>
-                       <div className="flex flex-col">
-                          <span className="text-xs font-bold uppercase tracking-tight text-white">Biometric Auth</span>
-                          <span className="text-[8px] font-black text-text-muted uppercase tracking-widest">{securityPrefs.biometrics ? 'Biometrics Enabled' : 'PIN Required Only'}</span>
-                       </div>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        className="sr-only peer" 
-                        checked={securityPrefs.biometrics} 
-                        onChange={() => updateSecurityToggle('biometrics')}
-                      />
-                      <div className="w-12 h-6 bg-background-dark peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-6 peer-checked:after:border-white after:content-[''] after:absolute after:top-[4px] after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary shadow-inner"></div>
-                    </label>
-                 </div>
-
                  <div className="flex flex-col gap-4">
                     <div className="bg-background-dark/30 p-5 rounded-3xl border border-white/5 flex flex-col gap-3">
                        <div className="flex items-center gap-3">
@@ -491,7 +480,7 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
         <div className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex items-end justify-center animate-in slide-in-from-bottom duration-300">
            <div className="bg-surface-dark w-full max-w-md rounded-t-[40px] border-t border-white/10 p-8 flex flex-col gap-6 shadow-2xl">
               <div className="flex justify-between items-center">
-                 <h3 className="text-sm font-black uppercase tracking-widest italic text-primary">Edit Identity</h3>
+                 <h3 className="text-sm font-black uppercase tracking-widest italic text-primary">{t('settings.edit_identity')}</h3>
                  <button onClick={() => setShowEdit(false)} className="text-text-muted hover:text-white transition-colors">
                     <span className="material-symbols-outlined">close</span>
                  </button>
@@ -509,10 +498,10 @@ const Settings: React.FC<SettingsProps> = ({ onLogout }) => {
                    value={editId}
                    onChange={(e) => setEditId(e.target.value)}
                    className="bg-background-dark/50 border-white/5 border rounded-2xl h-14 px-5 text-sm font-bold text-white focus:ring-1 focus:ring-primary"
-                   placeholder="Staff ID"
+                   placeholder={t('login.staff_id')}
                  />
               </div>
-              <button onClick={handleSaveProfile} className="w-full h-14 bg-primary text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-xl active:scale-[0.98]">Update Profile</button>
+              <button onClick={handleSaveProfile} className="w-full h-14 bg-primary text-white font-black uppercase tracking-[0.2em] text-xs rounded-2xl shadow-xl active:scale-[0.98]">{t('settings.update_profile')}</button>
               <div className="h-8" />
            </div>
         </div>
